@@ -1,0 +1,25 @@
+{
+  "name": "NUPRC Minute — Offline Meeting Minutes",
+  "short_name": "NUPRC Minute",
+  "description": "100% Offline Speech-to-Text & Official A4 NUPRC .docx Minutes Generator",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#064E3B",
+  "theme_color": "#064E3B",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Ccircle cx='96' cy='96' r='92' fill='%23064E3B' stroke='%23FACC15' stroke-width='6'/%3E%3Ccircle cx='96' cy='96' r='64' fill='%23F97316'/%3E%3Cpath d='M84 132 L92 56 L100 56 L108 132 Z' fill='%23111827'/%3E%3Crect x='74' y='132' width='44' height='8' fill='%23111827'/%3E%3Ctext x='96' y='26' font-family='sans-serif' font-size='14' font-weight='bold' fill='%23FFFFFF' text-anchor='middle'%3ENUPRC%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Ccircle cx='256' cy='256' r='246' fill='%23064E3B' stroke='%23FACC15' stroke-width='14'/%3E%3Ccircle cx='256' cy='256' r='170' fill='%23F97316'/%3E%3Cpath d='M224 352 L246 150 L266 150 L288 352 Z' fill='%23111827'/%3E%3Crect x='196' y='352' width='120' height='22' fill='%23111827'/%3E%3Ctext x='256' y='70' font-family='sans-serif' font-size='38' font-weight='bold' fill='%23FFFFFF' text-anchor='middle'%3ENUPRC%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

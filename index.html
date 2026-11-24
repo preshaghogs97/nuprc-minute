@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#064E3B" />
+  <title>NUPRC Minute — Offline PWA</title>
+  <link rel="manifest" href="./manifest.json" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --green-dark: #064E3B;
+      --green-mid: #047857;
+      --green-light: #D1FAE5;
+      --gold: #FACC15;
+      --bg: #F3F4F6;
+      --card: #FFFFFF;
+      --text: #111827;
+      --muted: #4B5563;
+      --border: #D1D5DB;
+      --danger: #DC2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    header {
+      background: var(--green-dark);
+      color: #fff;
+      padding: 12px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 3px solid var(--gold);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand canvas { width: 44px; height: 44px; border-radius: 50%; background: #fff; }
+    .brand h1 { margin: 0; font-size: 1.15rem; letter-spacing: 0.3px; }
+    .brand small { display: block; color: #A7F3D0; font-size: 0.78rem; }
+    .status-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .badge {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      background: rgba(255,255,255,0.14);
+      color: #fff;
+    }
+    .badge.ok { background: #059669; }
+    .badge.warn { background: #D97706; }
+
+    nav.tabs {
+      display: flex;
+      overflow-x: auto;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 0 10px;
+      gap: 4px;
+    }
+    nav.tabs button {
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      padding: 12px 14px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    nav.tabs button.active {
+      color: var(--green-dark);
+      border-bottom-color: var(--green-dark);
+    }
+
+    main { max-width: 1040px; margin: 16px auto; padding: 0 12px 48px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      color: var(--green-dark);
+      border-bottom: 1px solid #E5E7EB;
+      padding-bottom: 6px;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+
+    label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+    input[type="text"], input[type="date"], textarea, select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+    textarea { resize: vertical; }
+
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+    button.btn {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-weight: 600;
+      font-size: 0.86rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary { background: var(--green-dark); color: #fff; }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-secondary { background: #E5E7EB; color: var(--text); }
+    .btn-gold { background: var(--gold); color: #111827; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .queue-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid #E5E7EB;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      background: #F9FAFB;
+      font-size: 0.86rem;
+    }
+    .progress-wrap {
+      width: 100%;
+      background: #E5E7EB;
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--green-mid);
+      transition: width 0.2s ease;
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+    table.data-table th, table.data-table td {
+      border: 1px solid var(--border);
+      padding: 7px 8px;
+      text-align: left;
+    }
+    table.data-table th { background: #F3F4F6; color: var(--green-dark); }
+    .agenda-box {
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--green-dark);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #FAFAFA;
+    }
+    .stats-strip {
+      display: flex;
+      gap: 16px;
+      font-size: 0.84rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <canvas id="headerEmblem" width="320" height="320"></canvas>
+    <div>
+      <h1>NUPRC Minute</h1>
+      <small>Nigerian Upstream Petroleum Regulatory Commission • Offline PWA</small>
+    </div>
+  </div>
+  <div class="status-bar">
+    <span id="netBadge" class="badge ok">Online</span>
+    <span id="modelBadge" class="badge warn">Whisper Model: Not Loaded</span>
+    <button id="installBtn" class="btn btn-gold" style="display:none;">Install App</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="active" data-tab="tab-audio">1. Audio &amp; Transcribe</button>
+  <button data-tab="tab-transcript">2. Verbatim Transcript</button>
+  <button data-tab="tab-draft">3. Draft Minutes Editor</button>
+  <button data-tab="tab-actions">4. Action Items</button>
+  <button data-tab="tab-history">5. Offline History</button>
+</nav>
+
+<main>
+  <section id="tab-audio" class="panel active">
+    <div class="card">
+      <h2>Step 1A: Offline Whisper Engine (Xenova/whisper-base.en Quantized)</h2>
+      <p style="font-size:0.86rem;color:var(--muted);margin-top:0;">
+        Download &amp; cache the ~75 MB quantized Whisper model once while online. Afterward, enable Airplane Mode anytime—transcription runs 100% locally on your device CPU via WebAssembly.
+      </p>
+      <div class="btn-row">
+        <button id="preloadModelBtn" class="btn btn-primary">Download / Verify Offline Model</button>
+        <span id="modelStatusText" style="font-size:0.84rem;color:var(--muted);">Idle</span>
+      </div>
+      <div class="progress-wrap"><div id="modelProgress" class="progress-bar"></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Step 1B: Multi-File Audio Queue &amp; Live Microphone</h2>
+      <div class="grid-2">
+        <div>
+          <label>Select Meeting Recordings (.mp3, .m4a, .wav, .ogg, .aac)</label>
+          <input type="file" id="audioFilesInput" accept=".mp3,.m4a,.wav,.ogg,.aac,audio/*" multiple />
+          <small style="color:var(--muted);display:block;margin-top:4px;">Files are automatically sorted chronologically by timestamp/filename.</small>
+        </div>
+        <div>
+          <label>Live Microphone Recorder (Offline Local Capture)</label>
+          <div class="btn-row" style="margin-top:0;">
+            <button id="recStartBtn" class="btn btn-primary">Start Recording</button>
+            <button id="recStopBtn" class="btn btn-danger" disabled>Stop &amp; Queue</button>
+            <span id="recTimer" style="font-weight:700;font-size:0.9rem;">00:00</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="audioQueueList" style="margin-top:14px;"></div>
+
+      <div class="btn-row">
+        <button id="transcribeAllBtn" class="btn btn-primary" disabled>Transcribe Queue Offline</button>
+        <button id="clearQueueBtn" class="btn btn-secondary">Clear Queue</button>
+      </div>
+      <div class="progress-wrap"><div id="transcribeProgress" class="progress-bar"></div></div>
+      <div id="transcribeStatus" style="font-size:0.84rem;color:var(--muted);margin-top:6px;">No files queued.</div>
+    </div>
+  </section>
+
+  <section id="tab-transcript" class="panel">
+    <div class="card">
+      <h2>Raw Verbatim Transcript Editor</h2>
+      <textarea id="verbatimText" rows="16" placeholder="Transcribed audio will appear here. You can also paste or edit raw meeting text directly..."></textarea>
+      <div class="stats-strip">
+        <span id="wordCount">Words: 0</span>
+        <span id="charCount">Characters: 0</span>
+      </div>
+      <div class="btn-row">
+        <button id="extractMinutesBtn" class="btn btn-primary">Auto-Extract NUPRC Minutes</button>
+        <button id="exportTxtBtn" class="btn btn-secondary">Export Verbatim (.txt)</button>
+        <button id="exportVerbatimDocxBtn" class="btn btn-secondary">Export Verbatim (.docx)</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Optional Local LLM / WebLLM JSON Import</h2>
+      <p style="font-size:0.84rem;color:var(--muted);margin-top:0;">
+        If you run a local model or WebLLM prompt externally, paste structured JSON (<code>{"safetyBrief":"...","agenda":[...],"actions":[...],"closing":"..."}</code>) below to populate the Draft Editor directly.
+      </p>
+      <textarea id="llmJsonInput" rows="4" placeholder='{"safetyBrief":"Fire exits reviewed.","agenda":[{"title":"1.0 Opening","discussion":"...","resolution":"..."}],"actions":[{"item":"Submit report","owner":"Engr. A","deadline":"2026-12-01"}],"closing":"Meeting adjourned at 14:00 hrs."}'></textarea>
+      <div class="btn-row">
+        <button id="applyJsonBtn" class="btn btn-secondary">Apply JSON to Draft</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-draft" class="panel">
+    <div class="card">
+      <h2>Header Metadata (Official NUPRC Format)</h2>
+      <div class="grid-2">
+        <div>
+          <label>Meeting Title</label>
+          <input type="text" id="metaTitle" value="TECHNICAL &amp; OPERATIONS COORDINATION MEETING" />
+        </div>
+        <div>
+          <label>Department / Division</label>
+          <input type="text" id="metaDept" value="Engineering &amp; Technical Standards Division" />
+        </div>
+        <div>
+          <label>Date</label>
+          <input type="date" id="metaDate" />
+        </div>
+        <div>
+          <label>Time &amp; Venue</label>
+          <input type="text" id="metaVenue" value="10:00 AM • NUPRC Conference Room" />
+        </div>
+        <div>
+          <label>Chairperson</label>
+          <input type="text" id="metaChair" value="Head, Operations" />
+        </div>
+        <div>
+          <label>Secretary / Rapporteur</label>
+          <input type="text" id="metaSec" value="Precious Aghogho" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Attendance Register</h2>
+      <table class="data-table" id="attendanceTable">
+        <thead>
+          <tr><th>S/N</th><th>Name</th><th>Designation / Unit</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="btn-row">
+        <button id="addAttendeeBtn" class="btn btn-secondary">+ Add Attendee</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Safety Brief (Unnumbered Opening Section)</h2>
+      <textarea id="safetyBriefInput" rows="3" placeholder="HSE / Safety moment delivered prior to agenda deliberation...">Participants were reminded of emergency muster points, ergonomic posture, and strict adherence to NUPRC HSE protocols.</textarea>
+    </div>
+
+    <div class="card">
+      <h2>Discussions &amp; Resolutions</h2>
+      <div id="agendaContainer"></div>
+      <div class="btn-row">
+        <button id="addAgendaBtn" class="btn btn-secondary">+ Add Agenda Item</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Closing Remarks &amp; 4-Column Sign-Off</h2>
+      <label>Closing Remarks</label>
+      <textarea id="closingInput" rows="2">There being no other business, the meeting was adjourned following a closing prayer.</textarea>
+      <div class="grid-2" style="margin-top:10px;">
+        <div>
+          <label>Prepared By (Name &amp; Title)</label>
+          <input type="text" id="signPrep" value="Precious Aghogho — Electrical Engineering" />
+        </div>
+        <div>
+          <label>Approved By (Name &amp; Title)</label>
+          <input type="text" id="signAppr" value="Chairperson / Head of Division" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="background:#ECFDF5;border-color:#059669;">
+      <div class="btn-row" style="margin-top:0;justify-content:space-between;">
+        <div>
+          <strong style="color:var(--green-dark);">Official A4 NUPRC Word Export (.docx)</strong>
+          <div style="font-size:0.82rem;color:var(--muted);">11906×16838 DXA • Times New Roman • 10,500 DXA Fixed Tables • Embedded 320×320 Seal</div>
+        </div>
+        <div class="btn-row" style="margin-top:0;">
+          <button id="saveHistoryBtn" class="btn btn-secondary">Save to Offline History</button>
+          <button id="generateDocxBtn" class="btn btn-primary">Download Official .docx</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-actions" class="panel">
+    <div class="card">
+      <h2>Actionable Items Tracker</h2>
+      <table class="data-table" id="actionsTable">
+        <thead>
+          <tr><th>S/N</th><th>Action Description</th><th>Responsible Party</th><th>Timeline / Due</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="btn-row">
+        <button id="addActionBtn" class="btn btn-primary">+ Add Action Item</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-history" class="panel">
+    <div class="card">
+      <h2>Saved Minutes (Offline IndexedDB Storage)</h2>
+      <div id="historyList"></div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+  import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+
+  env.allowLocalModels = false;
+  env.useBrowserCache = true;
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(console.warn);
+  }
+
+  let deferredPrompt = null;
+  const installBtn = document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'inline-flex';
+  });
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display = 'none';
+  });
+
+  const netBadge = document.getElementById('netBadge');
+  function updateNetStatus() {
+    if (navigator.onLine) {
+      netBadge.textContent = 'Online (Ready to Cache)';
+      netBadge.className = 'badge ok';
+    } else {
+      netBadge.textContent = 'Offline / Airplane Mode';
+      netBadge.className = 'badge warn';
+    }
+  }
+  window.addEventListener('online', updateNetStatus);
+  window.addEventListener('offline', updateNetStatus);
+  updateNetStatus();
+
+  function drawNuprcEmblem(canvas) {
+    const ctx = canvas.getContext('2d');
+    const W = 320, H = 320, cx = 160, cy = 160;
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 156, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#064E3B';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 148, 0, Math.PI * 2);
+    ctx.fillStyle = '#064E3B';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 108, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#FACC15';
+    ctx.stroke();
+
+    function drawCurvedText(text, radius, startAngle, endAngle, bottom = false) {
+      ctx.save();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 13px Times New Roman, serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const step = (endAngle - startAngle) / Math.max(1, text.length - 1);
+      for (let i = 0; i < text.length; i++) {
+        const angle = startAngle + i * step;
+        ctx.save();
+        ctx.translate(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+        ctx.rotate(bottom ? angle - Math.PI / 2 : angle + Math.PI / 2);
+        ctx.fillText(text[i], 0, 0);
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+    drawCurvedText('NIGERIAN UPSTREAM PETROLEUM', 128, -Math.PI * 0.86, -Math.PI * 0.14, false);
+    drawCurvedText('REGULATORY COMMISSION', 128, Math.PI * 0.84, Math.PI * 0.16, true);
+
+    const teeth = 18, outerR = 102, innerR = 88;
+    ctx.beginPath();
+    for (let i = 0; i < teeth; i++) {
+      const a0 = (i / teeth) * Math.PI * 2;
+      const a1 = ((i + 0.25) / teeth) * Math.PI * 2;
+      const a2 = ((i + 0.55) / teeth) * Math.PI * 2;
+      const a3 = ((i + 0.80) / teeth) * Math.PI * 2;
+      if (i === 0) ctx.moveTo(cx + innerR * Math.cos(a0), cy + innerR * Math.sin(a0));
+      ctx.lineTo(cx + outerR * Math.cos(a1), cy + outerR * Math.sin(a1));
+      ctx.lineTo(cx + outerR * Math.cos(a2), cy + outerR * Math.sin(a2));
+      ctx.lineTo(cx + innerR * Math.cos(a3), cy + innerR * Math.sin(a3));
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#FACC15';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#B45309';
+    ctx.stroke();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 78, 0, Math.PI * 2);
+    ctx.clip();
+
+    const grad = ctx.createLinearGradient(0, cy - 78, 0, cy + 78);
+    grad.addColorStop(0, '#DC2626');
+    grad.addColorStop(0.55, '#F97316');
+    grad.addColorStop(1, '#FDE047');
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx - 80, cy - 80, 160, 160);
+
+    ctx.fillStyle = '#064E3B';
+    ctx.fillRect(cx - 80, cy + 36, 160, 46);
+
+    ctx.strokeStyle = '#111827';
+    ctx.fillStyle = '#111827';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 22, cy + 38);
+    ctx.lineTo(cx - 7, cy - 36);
+    ctx.lineTo(cx + 7, cy - 36);
+    ctx.lineTo(cx + 22, cy + 38);
+    ctx.stroke();
+
+    ctx.lineWidth = 1.8;
+    for (let y = -22; y <= 26; y += 14) {
+      const span = 7 + ((y + 36) / 74) * 15;
+      ctx.beginPath();
+      ctx.moveTo(cx - span, cy + y);
+      ctx.lineTo(cx + span, cy + y);
+      ctx.stroke();
+    }
+    ctx.fillRect(cx - 10, cy - 41, 20, 5);
+
+    const hx = cx + 36, hy = cy - 26;
+    ctx.beginPath();
+    ctx.ellipse(hx, hy, 11, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(hx - 22, hy - 1.5, 13, 3);
+    ctx.fillRect(hx - 23, hy - 5, 2.5, 8);
+    ctx.fillRect(hx - 14, hy - 8, 28, 2);
+    ctx.fillRect(hx - 1, hy - 8, 2, 4);
+
+    ctx.restore();
+  }
+
+  const headerCanvas = document.getElementById('headerEmblem');
+  drawNuprcEmblem(headerCanvas);
+
+  document.querySelectorAll('nav.tabs button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('nav.tabs button').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  let transcriber = null;
+  const modelBadge = document.getElementById('modelBadge');
+  const modelStatusText = document.getElementById('modelStatusText');
+  const modelProgress = document.getElementById('modelProgress');
+  const preloadModelBtn = document.getElementById('preloadModelBtn');
+  const transcribeAllBtn = document.getElementById('transcribeAllBtn');
+
+  async function ensureWhisperLoaded() {
+    if (transcriber) return transcriber;
+    preloadModelBtn.disabled = true;
+    modelStatusText.textContent = 'Loading Xenova/whisper-base.en (quantized)...';
+    try {
+      transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-base.en', {
+        quantized: true,
+        progress_callback: (data) => {
+          if (data.status === 'progress' && data.progress) {
+            modelProgress.style.width = `${Math.round(data.progress)}%`;
+            modelStatusText.textContent = `Caching ${data.file || 'weights'}: ${Math.round(data.progress)}%`;
+          }
+        }
+      });
+      modelProgress.style.width = '100%';
+      modelBadge.textContent = 'Whisper Model: Cached & Ready';
+      modelBadge.className = 'badge ok';
+      modelStatusText.textContent = 'Model ready for 100% offline Airplane Mode transcription.';
+      updateQueueUI();
+      return transcriber;
+    } catch (err) {
+      modelStatusText.textContent = 'Error loading model: ' + err.message;
+      preloadModelBtn.disabled = false;
+      throw err;
+    }
+  }
+
+  preloadModelBtn.addEventListener('click', ensureWhisperLoaded);
+
+  async function decodeAndResampleTo16kMono(fileOrBlob) {
+    const arrayBuffer = await fileOrBlob.arrayBuffer();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const tempCtx = new AudioCtx();
+    const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
+    await tempCtx.close();
+
+    const targetRate = 16000;
+    const frameCount = Math.ceil(audioBuffer.duration * targetRate);
+    const offlineCtx = new OfflineAudioContext(1, frameCount, targetRate);
+    const source = offlineCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(offlineCtx.destination);
+    source.start(0);
+    const rendered = await offlineCtx.startRendering();
+    return rendered.getChannelData(0);
+  }
+
+  let audioQueue = [];
+  const audioFilesInput = document.getElementById('audioFilesInput');
+  const audioQueueList = document.getElementById('audioQueueList');
+
+  function updateQueueUI() {
+    audioQueue.sort((a, b) => a.timestamp - b.timestamp || a.name.localeCompare(b.name));
+    audioQueueList.innerHTML = '';
+    audioQueue.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = 'queue-item';
+      const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      div.innerHTML = `
+        <span><strong>#${idx + 1}</strong> ${item.name} <small style="color:#6B7280;">(${timeStr})</small></span>
+        <span>
+          <span class="badge ${item.status === 'Done' ? 'ok' : 'warn'}" style="margin-right:6px;">${item.status}</span>
+          <button class="btn btn-secondary" style="padding:3px 8px;font-size:0.75rem;" data-del="${item.id}">Remove</button>
+        </span>
+      `;
+      div.querySelector('button').addEventListener('click', () => {
+        audioQueue = audioQueue.filter((q) => q.id !== item.id);
+        updateQueueUI();
+      });
+      audioQueueList.appendChild(div);
+    });
+    transcribeAllBtn.disabled = audioQueue.length === 0;
+  }
+
+  audioFilesInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((f) => {
+      audioQueue.push({
+        id: crypto.randomUUID(),
+        name: f.name,
+        timestamp: f.lastModified || Date.now(),
+        blob: f,
+        status: 'Queued'
+      });
+    });
+    audioFilesInput.value = '';
+    updateQueueUI();
+  });
+
+  document.getElementById('clearQueueBtn').addEventListener('click', () => {
+    audioQueue = [];
+    updateQueueUI();
+  });
+
+  let mediaRecorder = null;
+  let recChunks = [];
+  let recInterval = null;
+  let recSeconds = 0;
+  const recStartBtn = document.getElementById('recStartBtn');
+  const recStopBtn = document.getElementById('recStopBtn');
+  const recTimer = document.getElementById('recTimer');
+
+  recStartBtn.addEventListener('click', async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        const stamp = new Date();
+        audioQueue.push({
+          id: crypto.randomUUID(),
+          name: `Live_Recording_${stamp.toTimeString().slice(0,8).replace(/:/g,'-')}.webm`,
+          timestamp: stamp.getTime(),
+          blob,
+          status: 'Queued'
+        });
+        updateQueueUI();
+      };
+      mediaRecorder.start();
+      recSeconds = 0;
+      recTimer.textContent = '00:00';
+      recInterval = setInterval(() => {
+        recSeconds++;
+        const m = String(Math.floor(recSeconds / 60)).padStart(2, '0');
+        const s = String(recSeconds % 60).padStart(2, '0');
+        recTimer.textContent = `${m}:${s}`;
+      }, 1000);
+      recStartBtn.disabled = true;
+      recStopBtn.disabled = false;
+    } catch (err) {
+      alert('Microphone permission denied or unavailable: ' + err.message);
+    }
+  });
+
+  recStopBtn.addEventListener('click', () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    clearInterval(recInterval);
+    recStartBtn.disabled = false;
+    recStopBtn.disabled = true;
+  });
+
+  const verbatimText = document.getElementById('verbatimText');
+  const transcribeProgress = document.getElementById('transcribeProgress');
+  const transcribeStatus = document.getElementById('transcribeStatus');
+
+  transcribeAllBtn.addEventListener('click', async () => {
+    if (audioQueue.length === 0) return;
+    transcribeAllBtn.disabled = true;
+    try {
+      const asr = await ensureWhisperLoaded();
+      let combined = verbatimText.value.trim();
+
+      for (let i = 0; i < audioQueue.length; i++) {
+        const item = audioQueue[i];
+        item.status = 'Resampling 16kHz...';
+        updateQueueUI();
+        transcribeStatus.textContent = `Processing (${i + 1}/${audioQueue.length}): ${item.name}`;
+
+        const pcm16k = await decodeAndResampleTo16kMono(item.blob);
+        item.status = 'Transcribing...';
+        updateQueueUI();
+
+        const output = await asr(pcm16k, {
+          chunk_length_s: 30,
+          stride_length_s: 5,
+          return_timestamps: false
+        });
+
+        const text = (output.text || '').trim();
+        combined += (combined ? '\n\n' : '') + `[Recording ${i + 1}: ${item.name}]\n${text}`;
+        verbatimText.value = combined;
+        updateTranscriptStats();
+
+        item.status = 'Done';
+        transcribeProgress.style.width = `${Math.round(((i + 1) / audioQueue.length) * 100)}%`;
+        updateQueueUI();
+      }
+
+      transcribeStatus.textContent = 'All recordings transcribed offline. Switching to Verbatim Transcript...';
+      runDeterministicExtractor();
+      document.querySelector('nav.tabs button[data-tab="tab-transcript"]').click();
+    } catch (err) {
+      transcribeStatus.textContent = 'Transcription error: ' + err.message;
+    } finally {
+      transcribeAllBtn.disabled = false;
+    }
+  });
+
+  function updateTranscriptStats() {
+    const val = verbatimText.value;
+    const words = val.trim() ? val.trim().split(/\s+/).length : 0;
+    document.getElementById('wordCount').textContent = `Words: ${words}`;
+    document.getElementById('charCount').textContent = `Characters: ${val.length}`;
+  }
+  verbatimText.addEventListener('input', updateTranscriptStats);
+
+  let state = {
+    attendance: [
+      { name: 'Engr. Chairman', role: 'Chairperson / Operations', status: 'Present' },
+      { name: 'Precious Aghogho', role: 'Electrical Engineering (Secretary)', status: 'Present' }
+    ],
+    agenda: [
+      {
+        title: '1.0 Opening & Review of Previous Minutes',
+        discussion: 'The Chairperson called the meeting to order and reviewed operational deliverables.',
+        resolution: 'Previous minutes were adopted as a true reflection of deliberations.'
+      }
+    ],
+    actions: [
+      { item: 'Compile electrical inspection & compliance report', owner: 'Engineering Team', deadline: 'Next Sitting', status: 'Open' }
+    ]
+  };
+
+  function runDeterministicExtractor() {
+    const raw = verbatimText.value.trim();
+    if (!raw) return;
+
+    const sentences = raw
+      .replace(/\[Recording \d+:[^\]]+\]/g, '')
+      .split(/(?<=[.?!])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const safetyHits = sentences.filter((s) => /\b(safety|hse|hazard|muster|ppe|emergency|incident|health)\b/i.test(s));
+    if (safetyHits.length > 0) {
+      document.getElementById('safetyBriefInput').value = safetyHits.slice(0, 3).join(' ');
+    }
+
+    const extractedActions = [];
+    sentences.forEach((s) => {
+      if (/\b(action|must|shall|will ensure|assigned to|follow up|submit|prepare|deadline|by friday|by monday)\b/i.test(s)) {
+        const ownerMatch = s.match(/\b(Engr\.?\s+[A-Z][a-z]+|Mr\.?\s+[A-Z][a-z]+|Mrs\.?\s+[A-Z][a-z]+|[A-Z][a-z]+\s+Unit|[A-Z][a-z]+\s+Team)\b/);
+        const dateMatch = s.match(/\b(by\s+[A-Za-z0-9,\s]{3,20}|within\s+\d+\s+days)\b/i);
+        extractedActions.push({
+          item: s,
+          owner: ownerMatch ? ownerMatch[0] : 'Action Officer',
+          deadline: dateMatch ? dateMatch[0] : 'Immediate / Next Meeting',
+          status: 'Open'
+        });
+      }
+    });
+    if (extractedActions.length > 0) {
+      state.actions = extractedActions.slice(0, 12);
+    }
+
+    const bodySentences = sentences.filter((s) => !safetyHits.includes(s));
+    const chunkSize = Math.max(3, Math.ceil(bodySentences.length / 3));
+    const newAgenda = [];
+    for (let i = 0; i < bodySentences.length; i += chunkSize) {
+      const slice = bodySentences.slice(i, i + chunkSize);
+      const resLine = slice.find((s) => /\b(resolved|agreed|approved|decided|concluded)\b/i.test(s)) ||
+        'Noted for operational implementation and tracking.';
+      newAgenda.push({
+        title: `${newAgenda.length + 1}.0 Deliberation Item ${newAgenda.length + 1}`,
+        discussion: slice.join(' '),
+        resolution: resLine
+      });
+    }
+    if (newAgenda.length > 0) {
+      state.agenda = newAgenda;
+    }
+
+    const closingHit = [...sentences].reverse().find((s) => /\b(adjourn|closing|thank you all|end of meeting)\b/i.test(s));
+    if (closingHit) {
+      document.getElementById('closingInput').value = closingHit;
+    }
+
+    renderDraftTables();
+  }
+
+  document.getElementById('extractMinutesBtn').addEventListener('click', () => {
+    runDeterministicExtractor();
+    document.querySelector('nav.tabs button[data-tab="tab-draft"]').click();
+  });
+
+  document.getElementById('applyJsonBtn').addEventListener('click', () => {
+    try {
+      const parsed = JSON.parse(document.getElementById('llmJsonInput').value);
+      if (parsed.safetyBrief) document.getElementById('safetyBriefInput').value = parsed.safetyBrief;
+      if (Array.isArray(parsed.agenda)) state.agenda = parsed.agenda;
+      if (Array.isArray(parsed.actions)) state.actions = parsed.actions;
+      if (parsed.closing) document.getElementById('closingInput').value = parsed.closing;
+      renderDraftTables();
+      document.querySelector('nav.tabs button[data-tab="tab-draft"]').click();
+    } catch (e) {
+      alert('Invalid JSON format: ' + e.message);
+    }
+  });
+
+  function renderDraftTables() {
+    const attBody = document.querySelector('#attendanceTable tbody');
+    attBody.innerHTML = '';
+    state.attendance.forEach((row, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td><input type="text" value="${escapeHtml(row.name)}" data-f="name"></td>
+        <td><input type="text" value="${escapeHtml(row.role)}" data-f="role"></td>
+        <td><input type="text" value="${escapeHtml(row.status)}" data-f="status"></td>
+        <td><button class="btn btn-danger" style="padding:4px 8px;">X</button></td>
+      `;
+      tr.querySelectorAll('input').forEach((inp) => {
+        inp.addEventListener('input', () => { state.attendance[i][inp.dataset.f] = inp.value; });
+      });
+      tr.querySelector('button').addEventListener('click', () => {
+        state.attendance.splice(i, 1);
+        renderDraftTables();
+      });
+      attBody.appendChild(tr);
+    });
+
+    const agWrap = document.getElementById('agendaContainer');
+    agWrap.innerHTML = '';
+    state.agenda.forEach((ag, i) => {
+      const box = document.createElement('div');
+      box.className = 'agenda-box';
+      box.innerHTML = `
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;">
+          <input type="text" value="${escapeHtml(ag.title)}" data-f="title" style="font-weight:700;">
+          <button class="btn btn-danger" style="padding:4px 10px;">Delete</button>
+        </div>
+        <label>Discussion Summary</label>
+        <textarea rows="3" data-f="discussion">${escapeHtml(ag.discussion)}</textarea>
+        <label style="margin-top:6px;">Resolution / Decision</label>
+        <textarea rows="2" data-f="resolution">${escapeHtml(ag.resolution)}</textarea>
+      `;
+      box.querySelectorAll('input, textarea').forEach((el) => {
+        el.addEventListener('input', () => { state.agenda[i][el.dataset.f] = el.value; });
+      });
+      box.querySelector('button').addEventListener('click', () => {
+        state.agenda.splice(i, 1);
+        renderDraftTables();
+      });
+      agWrap.appendChild(box);
+    });
+
+    const actBody = document.querySelector('#actionsTable tbody');
+    actBody.innerHTML = '';
+    state.actions.forEach((act, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td><input type="text" value="${escapeHtml(act.item)}" data-f="item"></td>
+        <td><input type="text" value="${escapeHtml(act.owner)}" data-f="owner"></td>
+        <td><input type="text" value="${escapeHtml(act.deadline)}" data-f="deadline"></td>
+        <td>
+          <select data-f="status">
+            <option ${act.status === 'Open' ? 'selected' : ''}>Open</option>
+            <option ${act.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+            <option ${act.status === 'Completed' ? 'selected' : ''}>Completed</option>
+          </select>
+        </td>
+        <td><button class="btn btn-danger" style="padding:4px 8px;">X</button></td>
+      `;
+      tr.querySelectorAll('input, select').forEach((inp) => {
+        inp.addEventListener('change', () => { state.actions[i][inp.dataset.f] = inp.value; });
+        inp.addEventListener('input', () => { state.actions[i][inp.dataset.f] = inp.value; });
+      });
+      tr.querySelector('button').addEventListener('click', () => {
+        state.actions.splice(i, 1);
+        renderDraftTables();
+      });
+      actBody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('addAttendeeBtn').addEventListener('click', () => {
+    state.attendance.push({ name: '', role: '', status: 'Present' });
+    renderDraftTables();
+  });
+  document.getElementById('addAgendaBtn').addEventListener('click', () => {
+    state.agenda.push({
+      title: `${state.agenda.length + 1}.0 New Agenda Item`,
+      discussion: '',
+      resolution: ''
+    });
+    renderDraftTables();
+  });
+  document.getElementById('addActionBtn').addEventListener('click', () => {
+    state.actions.push({ item: '', owner: '', deadline: '', status: 'Open' });
+    renderDraftTables();
+  });
+
+  function escapeHtml(str = '') {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function escapeXml(str = '') {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  function buildCellXml(text, widthDxa, opts = {}) {
+    const {
+      bold = false,
+      sizeHalfPt = 24,
+      fill = null,
+      color = '000000',
+      align = 'left',
+      vAlign = 'center'
+    } = opts;
+    const shdXml = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '';
+    const lines = String(text || '').split('\n');
+    const parasXml = lines.map((line) => `
+      <w:p>
+        <w:pPr>
+          <w:spacing w:before="40" w:after="40" w:line="260" w:lineRule="auto"/>
+          <w:jc w:val="${align}"/>
+        </w:pPr>
+        <w:r>
+          <w:rPr>
+            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
+            ${bold ? '<w:b/>' : ''}
+            <w:color w:val="${color}"/>
+            <w:sz w:val="${sizeHalfPt}"/>
+            <w:szCs w:val="${sizeHalfPt}"/>
+          </w:rPr>
+          <w:t xml:space="preserve">${escapeXml(line)}</w:t>
+        </w:r>
+      </w:p>`).join('');
+
+    return `
+      <w:tc>
+        <w:tcPr>
+          <w:tcW w:w="${widthDxa}" w:type="dxa"/>
+          ${shdXml}
+          <w:vAlign w:val="${vAlign}"/>
+          <w:tcMar>
+            <w:top w:w="90" w:type="dxa"/>
+            <w:bottom w:w="90" w:type="dxa"/>
+            <w:left w:w="130" w:type="dxa"/>
+            <w:right w:w="130" w:type="dxa"/>
+          </w:tcMar>
+        </w:tcPr>
+        ${parasXml}
+      </w:tc>`;
+  }
+
+  function buildFixedTableXml(colWidths, rowsXml) {
+    const totalW = colWidths.reduce((a, b) => a + b, 0);
+    const gridCols = colWidths.map((w) => `<w:gridCol w:w="${w}"/>`).join('');
+    return `
+      <w:tbl>
+        <w:tblPr>
+          <w:tblW w:w="${totalW}" w:type="dxa"/>
+          <w:tblLayout w:type="fixed"/>
+          <w:tblBorders>
+            <w:top w:val="single" w:sz="6" w:space="0" w:color="064E3B"/>
+            <w:left w:val="single" w:sz="6" w:space="0" w:color="064E3B"/>
+            <w:bottom w:val="single" w:sz="6" w:space="0" w:color="064E3B"/>
+            <w:right w:val="single" w:sz="6" w:space="0" w:color="064E3B"/>
+            <w:insideH w:val="single" w:sz="4" w:space="0" w:color="9CA3AF"/>
+            <w:insideV w:val="single" w:sz="4" w:space="0" w:color="9CA3AF"/>
+          </w:tblBorders>
+        </w:tblPr>
+        <w:tblGrid>${gridCols}</w:tblGrid>
+        ${rowsXml}
+      </w:tbl>`;
+  }
+
+  function buildHeadingParaXml(text, fillHex = null, textColor = '064E3B') {
+    const shd = fillHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${fillHex}"/>` : '';
+    return `
+      <w:p>
+        <w:pPr>
+          <w:spacing w:before="180" w:after="90"/>
+          ${shd}
+          <w:pBdr>
+            <w:bottom w:val="single" w:sz="8" w:space="2" w:color="064E3B"/>
+          </w:pBdr>
+        </w:pPr>
+        <w:r>
+          <w:rPr>
+            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
+            <w:b/>
+            <w:color w:val="${textColor}"/>
+            <w:sz w:val="26"/>
+            <w:szCs w:val="26"/>
+          </w:rPr>
+          <w:t xml:space="preserve">${escapeXml(text)}</w:t>
+        </w:r>
+      </w:p>`;
+  }
+
+  function buildBodyParaXml(text, boldPrefix = '') {
+    return `
+      <w:p>
+        <w:pPr>
+          <w:spacing w:before="60" w:after="80" w:line="276" w:lineRule="auto"/>
+          <w:jc w:val="both"/>
+        </w:pPr>
+        ${boldPrefix ? `
+        <w:r>
+          <w:rPr>
+            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
+            <w:b/>
+            <w:sz w:val="24"/>
+            <w:szCs w:val="24"/>
+          </w:rPr>
+          <w:t xml:space="preserve">${escapeXml(boldPrefix)}</w:t>
+        </w:r>` : ''}
+        <w:r>
+          <w:rPr>
+            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
+            <w:sz w:val="24"/>
+            <w:szCs w:val="24"/>
+          </w:rPr>
+          <w:t xml:space="preserve">${escapeXml(text)}</w:t>
+        </w:r>
+      </w:p>`;
+  }
+
+  async function generateOfficialDocx(verbatimOnly = false) {
+    const zip = new JSZip();
+
+    const emblemCanvas = document.createElement('canvas');
+    emblemCanvas.width = 320;
+    emblemCanvas.height = 320;
+    drawNuprcEmblem(emblemCanvas);
+    const emblemDataUrl = emblemCanvas.toDataURL('image/png');
+    const emblemBase64 = emblemDataUrl.split(',')[1];
+    zip.file('word/media/emblem.png', emblemBase64, { base64: true });
+
+    const cxEmu = 914400;
+    const cyEmu = 914400;
+
+    const headerBannerXml = `
+      <w:p>
+        <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="60"/></w:pPr>
+        <w:r>
+          <w:drawing>
+            <wp:inline distT="0" distB="0" distL="0" distR="0"
+              xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+              <wp:extent cx="${cxEmu}" cy="${cyEmu}"/>
+              <wp:docPr id="1" name="NUPRC Emblem"/>
+              <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                  <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                    <pic:nvPicPr>
+                      <pic:cNvPr id="1" name="emblem.png"/>
+                      <pic:cNvPicPr/>
+                    </pic:nvPicPr>
+                    <pic:blipFill>
+                      <a:blip r:embed="rIdEmblem" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
+                      <a:stretch><a:fillRect/></a:stretch>
+                    </pic:blipFill>
+                    <pic:spPr>
+                      <a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxEmu}" cy="${cyEmu}"/></a:xfrm>
+                      <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                    </pic:spPr>
+                  </pic:pic>
+                </a:graphicData>
+              </a:graphic>
+            </wp:inline>
+          </w:drawing>
+        </w:r>
+      </w:p>
+      <w:p>
+        <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="40"/></w:pPr>
+        <w:r>
+          <w:rPr>
+            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>
+            <w:b/><w:color w:val="064E3B"/><w:sz w:val="28"/><w:szCs w:val="28"/>
+          </w:rPr>
+          <w:t>NIGERIAN UPSTREAM PETROLEUM REGULATORY COMMISSION (NUPRC)</w:t>
+        </w:r>
+      </w:p>
+      <w:p>
+        <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="160"/></w:pPr>
+        <w:r>
+          <w:rPr>
+            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>
+            <w:b/><w:sz w:val="24"/><w:szCs w:val="24"/>
+          </w:rPr>
+          <w:t>${escapeXml(document.getElementById('metaTitle').value.toUpperCase())}</w:t>
+        </w:r>
+      </w:p>`;
+
+    let mainBodyXml = '';
+
+    if (verbatimOnly) {
+      mainBodyXml = `
+        ${buildHeadingParaXml('VERBATIM MEETING TRANSCRIPT')}
+        ${buildBodyParaXml(verbatimText.value || 'No transcript recorded.')}
+      `;
+    } else {
+      const metaRows = [
+        ['Department / Division:', document.getElementById('metaDept').value],
+        ['Date of Meeting:', document.getElementById('metaDate').value || new Date().toISOString().slice(0, 10)],
+        ['Time & Venue:', document.getElementById('metaVenue').value],
+        ['Chairperson:', document.getElementById('metaChair').value],
+        ['Secretary / Rapporteur:', document.getElementById('metaSec').value]
+      ].map(([k, v]) => `
+        <w:tr>
+          ${buildCellXml(k, 2600, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
+          ${buildCellXml(v, 7900, { bold: false })}
+        </w:tr>`).join('');
+      const metaTable = buildFixedTableXml([2600, 7900], metaRows);
+
+      const attHeader = `
+        <w:tr>
+          ${buildCellXml('S/N', 800, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}
+          ${buildCellXml('NAME', 3700, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
+          ${buildCellXml('DESIGNATION / UNIT', 4200, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
+          ${buildCellXml('STATUS', 1800, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}
+        </w:tr>`;
+      const attRows = state.attendance.map((a, idx) => `
+        <w:tr>
+          ${buildCellXml(String(idx + 1), 800, { align: 'center' })}
+          ${buildCellXml(a.name, 3700, { bold: true })}
+          ${buildCellXml(a.role, 4200)}
+          ${buildCellXml(a.status, 1800, { align: 'center' })}
+        </w:tr>`).join('');
+      const attTable = buildFixedTableXml([800, 3700, 4200, 1800], attHeader + attRows);
+
+      const agendaXml = state.agenda.map((ag) => `
+        ${buildHeadingParaXml(ag.title)}
+        ${buildBodyParaXml(ag.discussion, 'Deliberation: ')}
+        ${buildBodyParaXml(ag.resolution, 'Resolution: ')}
+      `).join('');
+
+      const actHeader = `
+        <w:tr>
+          ${buildCellXml('S/N', 700, { bold: true, fill: 'D1FAE5', color: '064E3B', align: 'center' })}
+          ${buildCellXml('ACTION ITEM', 5000, { bold: true, fill: 'D1FAE5', color: '064E3B' })}
+          ${buildCellXml('RESPONSIBLE PARTY', 2400, { bold: true, fill: 'D1FAE5', color: '064E3B' })}
+          ${buildCellXml('TIMELINE / STATUS', 2400, { bold: true, fill: 'D1FAE5', color: '064E3B' })}
+        </w:tr>`;
+      const actRows = state.actions.map((act, idx) => `
+        <w:tr>
+          ${buildCellXml(String(idx + 1), 700, { align: 'center' })}
+          ${buildCellXml(act.item, 5000)}
+          ${buildCellXml(act.owner, 2400, { bold: true })}
+          ${buildCellXml(`${act.deadline} (${act.status})`, 2400)}
+        </w:tr>`).join('');
+      const actTable = buildFixedTableXml([700, 5000, 2400, 2400], actHeader + actRows);
+
+      const signRows = `
+        <w:tr>
+          ${buildCellXml('PREPARED BY', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
+          ${buildCellXml('SIGNATURE & DATE', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
+          ${buildCellXml('APPROVED BY', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
+          ${buildCellXml('SIGNATURE & DATE', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
+        </w:tr>
+        <w:tr>
+          ${buildCellXml(document.getElementById('signPrep').value, 2625, { bold: true })}
+          ${buildCellXml('\n_______________________\nDate: _________________', 2625)}
+          ${buildCellXml(document.getElementById('signAppr').value, 2625, { bold: true })}
+          ${buildCellXml('\n_______________________\nDate: _________________', 2625)}
+        </w:tr>`;
+      const signTable = buildFixedTableXml([2625, 2625, 2625, 2625], signRows);
+
+      mainBodyXml = `
+        ${metaTable}
+        ${buildHeadingParaXml('1. ATTENDANCE REGISTER')}
+        ${attTable}
+        ${buildHeadingParaXml('SAFETY BRIEF')}
+        ${buildBodyParaXml(document.getElementById('safetyBriefInput').value)}
+        ${buildHeadingParaXml('2. DISCUSSIONS & RESOLUTIONS')}
+        ${agendaXml}
+        ${buildHeadingParaXml('3. ACTIONABLE ITEMS', 'D1FAE5', '064E3B')}
+        ${actTable}
+        ${buildHeadingParaXml('4. CLOSING REMARKS')}
+        ${buildBodyParaXml(document.getElementById('closingInput').value)}
+        ${buildHeadingParaXml('5. AUTHENTICATION & SIGN-OFF')}
+        ${signTable}
+      `;
+    }
+
+    const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+        <w:body>
+          ${headerBannerXml}
+          ${mainBodyXml}
+          <w:sectPr>
+            <w:pgSz w:w="11906" w:h="16838"/>
+            <w:pgMar w:top="720" w:right="703" w:bottom="720" w:left="703" w:header="450" w:footer="450" w:gutter="0"/>
+          </w:sectPr>
+        </w:body>
+      </w:document>`;
+
+    zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Default Extension="png" ContentType="image/png"/>
+        <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+      </Types>`);
+
+    zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+      </Relationships>`);
+
+    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rIdEmblem" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/emblem.png"/>
+      </Relationships>`);
+
+    zip.file('word/document.xml', documentXml);
+
+    const blob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    });
+
+    const dateTag = document.getElementById('metaDate').value || new Date().toISOString().slice(0, 10);
+    const filename = verbatimOnly
+      ? `NUPRC_Verbatim_Transcript_${dateTag}.docx`
+      : `NUPRC_Official_Minutes_${dateTag}.docx`;
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  document.getElementById('generateDocxBtn').addEventListener('click', () => generateOfficialDocx(false));
+  document.getElementById('exportVerbatimDocxBtn').addEventListener('click', () => generateOfficialDocx(true));
+  document.getElementById('exportTxtBtn').addEventListener('click', () => {
+    const blob = new Blob([verbatimText.value], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `NUPRC_Transcript_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  const DB_NAME = 'nuprc_minute_db';
+  const STORE_NAME = 'sessions';
+
+  function openDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        req.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveSession() {
+    const db = await openDb();
+    const record = {
+      id: crypto.randomUUID(),
+      savedAt: new Date().toLocaleString(),
+      title: document.getElementById('metaTitle').value,
+      date: document.getElementById('metaDate').value,
+      dept: document.getElementById('metaDept').value,
+      venue: document.getElementById('metaVenue').value,
+      chair: document.getElementById('metaChair').value,
+      sec: document.getElementById('metaSec').value,
+      safety: document.getElementById('safetyBriefInput').value,
+      closing: document.getElementById('closingInput').value,
+      signPrep: document.getElementById('signPrep').value,
+      signAppr: document.getElementById('signAppr').value,
+      transcript: verbatimText.value,
+      state: JSON.parse(JSON.stringify(state))
+    };
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(record);
+    await new Promise((r) => { tx.oncomplete = r; });
+    alert('Saved offline to browser IndexedDB!');
+    renderHistory();
+  }
+
+  async function renderHistory() {
+    const db = await openDb();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).getAll();
+    const items = await new Promise((r) => { req.onsuccess = () => r(req.result || []); });
+    const wrap = document.getElementById('historyList');
+    if (items.length === 0) {
+      wrap.innerHTML = '<p style="color:var(--muted);font-size:0.88rem;">No saved sessions yet.</p>';
+      return;
+    }
+    wrap.innerHTML = '';
+    items.reverse().forEach((rec) => {
+      const div = document.createElement('div');
+      div.className = 'queue-item';
+      div.innerHTML = `
+        <div>
+          <strong>${escapeHtml(rec.title)}</strong>
+          <div style="font-size:0.78rem;color:var(--muted);">Date: ${rec.date || 'N/A'} • Saved: ${rec.savedAt}</div>
+        </div>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;" data-load>Load</button>
+          <button class="btn btn-danger" style="padding:4px 10px;font-size:0.8rem;" data-del>Delete</button>
+        </div>
+      `;
+      div.querySelector('[data-load]').addEventListener('click', () => {
+        document.getElementById('metaTitle').value = rec.title;
+        document.getElementById('metaDate').value = rec.date;
+        document.getElementById('metaDept').value = rec.dept;
+        document.getElementById('metaVenue').value = rec.venue;
+        document.getElementById('metaChair').value = rec.chair;
+        document.getElementById('metaSec').value = rec.sec;
+        document.getElementById('safetyBriefInput').value = rec.safety;
+        document.getElementById('closingInput').value = rec.closing;
+        document.getElementById('signPrep').value = rec.signPrep;
+        document.getElementById('signAppr').value = rec.signAppr;
+        verbatimText.value = rec.transcript || '';
+        state = rec.state;
+        updateTranscriptStats();
+        renderDraftTables();
+        document.querySelector('nav.tabs button[data-tab="tab-draft"]').click();
+      });
+      div.querySelector('[data-del]').addEventListener('click', async () => {
+        const dTx = db.transaction(STORE_NAME, 'readwrite');
+        dTx.objectStore(STORE_NAME).delete(rec.id);
+        await new Promise((r) => { dTx.oncomplete = r; });
+        renderHistory();
+      });
+      wrap.appendChild(div);
+    });
+  }
+
+  document.getElementById('saveHistoryBtn').addEventListener('click', saveSession);
+
+  document.getElementById('metaDate').value = new Date().toISOString().slice(0, 10);
+  renderDraftTables();
+  renderHistory();
+</script>
+</body>
+</html>
