@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#064E3B" />
-  <title>NUPRC Minute — Hybrid Offline/Online PWA</title>
+  <title>NUPRC Minute — Hybrid Offline/Online PWA (v3)</title>
   <link rel="manifest" href="./manifest.json" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
@@ -200,13 +200,13 @@
   <div class="brand">
     <canvas id="headerEmblem" width="320" height="320"></canvas>
     <div>
-      <h1>NUPRC Minute</h1>
-      <small>Hybrid Online Whisper API + Offline Web Worker PWA</small>
+      <h1>NUPRC Minute <span style="font-size:0.72rem;background:#047857;padding:2px 6px;border-radius:4px;">v3</span></h1>
+      <small>Auto-Chunked Online Whisper API + Offline Web Worker PWA</small>
     </div>
   </div>
   <div class="status-bar">
     <span id="netBadge" class="badge ok">Online</span>
-    <span id="engineBadge" class="badge ok">Engine: Auto (Online + Offline)</span>
+    <span id="engineBadge" class="badge ok">Engine: Auto</span>
     <button id="installBtn" class="btn btn-gold" style="display:none;">Install App</button>
   </div>
 </header>
@@ -228,8 +228,8 @@
         <div>
           <label>Transcription Mode</label>
           <select id="engineMode">
-            <option value="auto">Auto (Fast Online API if Key &amp; Internet, else Offline Worker)</option>
-            <option value="online">Online Cloud Whisper API Only (Fastest, Native .m4a)</option>
+            <option value="auto">Auto (Online API if Key &amp; Internet, else Offline Worker)</option>
+            <option value="online">Online Cloud Whisper API Only (Auto-Chunked &le; 18 MB)</option>
             <option value="offline">Offline Web Worker Only (Zero Internet / Airplane Mode)</option>
           </select>
         </div>
@@ -249,6 +249,7 @@
       <div class="btn-row">
         <button id="saveApiBtn" class="btn btn-secondary">Save API Key Locally</button>
         <button id="preloadWorkerBtn" class="btn btn-primary">Cache Offline Worker Model (~40 MB)</button>
+        <button id="forceResetCacheBtn" class="btn btn-secondary">Force Refresh App Cache</button>
         <span id="workerStatusText" style="font-size:0.84rem;color:var(--muted);">Offline worker ready on demand.</span>
       </div>
       <div class="progress-wrap"><div id="modelProgress" class="progress-bar"></div></div>
@@ -260,7 +261,7 @@
         <div>
           <label>Select Meeting Recordings (.mp3, .m4a, .wav, .ogg, .aac)</label>
           <input type="file" id="audioFilesInput" accept=".mp3,.m4a,.wav,.ogg,.aac,audio/*" multiple />
-          <small style="color:var(--muted);display:block;margin-top:4px;">Sorted chronologically. Online API handles .m4a natively up to 25 MB per file.</small>
+          <small style="color:var(--muted);display:block;margin-top:4px;">Files &gt; 18 MB are automatically split into safe chunks for Online API so HTTP 413 never occurs.</small>
         </div>
         <div>
           <label>Live Microphone Recorder (Local Capture)</label>
@@ -428,8 +429,22 @@
 <script type="module">
   // --- 1. SERVICE WORKER & PWA INSTALL ---
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(console.warn);
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      reg.update().catch(() => {});
+    }).catch(console.warn);
   }
+
+  document.getElementById('forceResetCacheBtn').addEventListener('click', async () => {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    window.location.reload(true);
+  });
 
   let deferredPrompt = null;
   const installBtn = document.getElementById('installBtn');
@@ -539,7 +554,6 @@
   `;
 
   let offlineWorker = null;
-  let workerReady = false;
   const workerStatusText = document.getElementById('workerStatusText');
   const modelProgress = document.getElementById('modelProgress');
 
@@ -553,7 +567,6 @@
           modelProgress.style.width = `${msg.progress}%`;
           workerStatusText.textContent = `Caching offline ${msg.file}: ${msg.progress}%`;
         } else if (msg.type === 'ready') {
-          workerReady = true;
           modelProgress.style.width = '100%';
           workerStatusText.textContent = 'Offline Worker cached & ready (whisper-tiny.en).';
         }
@@ -568,8 +581,13 @@
     w.postMessage({ type: 'preload' });
   });
 
-  // Safe 16 kHz Mono Resampler with 15-second timeout guard so UI never hangs
+  // Safe 16 kHz Mono Resampler with 45 MB RAM guard + 15s timeout so browser tabs never become unresponsive
   async function decodeAndResampleWithTimeout(fileOrBlob, timeoutMs = 15000) {
+    const maxOfflineBytes = 45 * 1024 * 1024;
+    if (fileOrBlob.size > maxOfflineBytes) {
+      throw new Error(`File is ${(fileOrBlob.size / (1024 * 1024)).toFixed(1)} MB, which exceeds the 45 MB browser RAM limit for offline WASM decoding. Switch to Online Cloud Whisper API mode (which auto-chunks large files) or split the recording.`);
+    }
+
     const decodeTask = (async () => {
       const arrayBuffer = await fileOrBlob.arrayBuffer();
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -592,7 +610,7 @@
     })();
 
     const timeoutTask = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Browser audio decoder timed out (15s). Use Online Whisper API mode or convert .m4a to .mp3/.wav.')), timeoutMs)
+      setTimeout(() => reject(new Error('Browser audio decoder timed out (15s). Switch to Online Cloud Whisper API mode or convert .m4a to .mp3/.wav.')), timeoutMs)
     );
     return Promise.race([decodeTask, timeoutTask]);
   }
@@ -619,20 +637,10 @@
     });
   }
 
-  // --- 4. FAST ONLINE CLOUD WHISPER API (GROQ / OPENAI) ---
-  async function transcribeViaOnlineApi(fileOrBlob, filename) {
-    const apiKey = apiKeyEl.value.trim();
-    if (!apiKey) {
-      throw new Error('No API key entered. Paste your Groq/OpenAI API key in Step 1A or switch to Offline Web Worker mode.');
-    }
-    const provider = apiProviderEl.value;
-    const url = provider === 'groq'
-      ? 'https://api.groq.com/openai/v1/audio/transcriptions'
-      : 'https://api.openai.com/v1/audio/transcriptions';
-    const model = provider === 'groq' ? 'whisper-large-v3-turbo' : 'whisper-1';
-
+  // --- 4. AUTO-CHUNKED ONLINE CLOUD WHISPER API (PREVENTS HTTP 413) ---
+  async function uploadSingleChunkToApi(blobSlice, filename, apiKey, url, model) {
     const formData = new FormData();
-    formData.append('file', fileOrBlob, filename || 'meeting.m4a');
+    formData.append('file', blobSlice, filename);
     formData.append('model', model);
     formData.append('language', 'en');
     formData.append('response_format', 'json');
@@ -649,6 +657,39 @@
     }
     const data = await res.json();
     return (data.text || '').trim();
+  }
+
+  async function transcribeViaOnlineApiChunked(fileOrBlob, filename, onProgress) {
+    const apiKey = apiKeyEl.value.trim();
+    if (!apiKey) {
+      throw new Error('No API key entered. Paste your Groq/OpenAI API key in Step 1A or switch to Offline Web Worker mode.');
+    }
+    const provider = apiProviderEl.value;
+    const url = provider === 'groq'
+      ? 'https://api.groq.com/openai/v1/audio/transcriptions'
+      : 'https://api.openai.com/v1/audio/transcriptions';
+    const model = provider === 'groq' ? 'whisper-large-v3-turbo' : 'whisper-1';
+
+    // Keep every upload strictly <= 18 MB (well below Groq/OpenAI 25 MB limit -> eliminates HTTP 413)
+    const MAX_CHUNK_BYTES = 18 * 1024 * 1024;
+    if (fileOrBlob.size <= MAX_CHUNK_BYTES) {
+      if (onProgress) onProgress(1, 1);
+      return await uploadSingleChunkToApi(fileOrBlob, filename || 'meeting.m4a', apiKey, url, model);
+    }
+
+    const totalChunks = Math.ceil(fileOrBlob.size / MAX_CHUNK_BYTES);
+    const ext = (filename && filename.includes('.')) ? filename.split('.').pop() : 'mp3';
+    const parts = [];
+
+    for (let c = 0; c < totalChunks; c++) {
+      if (onProgress) onProgress(c + 1, totalChunks);
+      const start = c * MAX_CHUNK_BYTES;
+      const end = Math.min(fileOrBlob.size, start + MAX_CHUNK_BYTES);
+      const slice = fileOrBlob.slice(start, end, fileOrBlob.type || 'audio/mpeg');
+      const partText = await uploadSingleChunkToApi(slice, `part_${c + 1}.${ext}`, apiKey, url, model);
+      if (partText) parts.push(partText);
+    }
+    return parts.join(' ');
   }
 
   // --- 5. PROCEDURAL 320x320 NUPRC EMBLEM CANVAS ---
@@ -891,10 +932,11 @@
         let text = '';
 
         if (engine === 'online') {
-          item.status = 'Uploading to Whisper API...';
-          updateQueueUI();
-          transcribeStatus.textContent = `Cloud Whisper (${i + 1}/${audioQueue.length}): ${item.name}`;
-          text = await transcribeViaOnlineApi(item.blob, item.name);
+          text = await transcribeViaOnlineApiChunked(item.blob, item.name, (part, total) => {
+            item.status = total > 1 ? `Uploading Chunk ${part}/${total}...` : 'Uploading to Whisper API...';
+            updateQueueUI();
+            transcribeStatus.textContent = `Cloud Whisper (${i + 1}/${audioQueue.length}): ${item.name} [Part ${part}/${total}]`;
+          });
         } else {
           item.status = 'Decoding 16kHz (15s limit)...';
           updateQueueUI();
