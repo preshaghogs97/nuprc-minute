@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#064E3B" />
-  <title>NUPRC Minute — Hybrid PWA (v4)</title>
+  <title>NUPRC Minute — Hybrid PWA (v6)</title>
   <link rel="manifest" href="./manifest.json" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
@@ -200,8 +200,8 @@
   <div class="brand">
     <canvas id="headerEmblem" width="320" height="320"></canvas>
     <div>
-      <h1>NUPRC Minute <span style="font-size:0.72rem;background:#047857;padding:2px 6px;border-radius:4px;">v4</span></h1>
-      <small>Chunked Online Whisper API + Offline Web Worker • Official MOM Table Export</small>
+      <h1>NUPRC Minute <span style="font-size:0.72rem;background:#047857;padding:2px 6px;border-radius:4px;">v6</span></h1>
+      <small>Party-Tagged MOM Extraction • WAV-Chunked Whisper API • Official Table Export</small>
     </div>
   </div>
   <div class="status-bar">
@@ -228,7 +228,7 @@
         <div>
           <label>Transcription Mode</label>
           <select id="engineMode">
-            <option value="online">Online Cloud Whisper API (Recommended • 12 MB Auto-Chunks)</option>
+            <option value="online">Online Cloud Whisper API (WAV-Chunked &gt; 12 MB)</option>
             <option value="offline">Offline Web Worker Only (Zero Internet / Airplane Mode)</option>
             <option value="auto">Auto (Online API if Key &amp; Internet, else Offline Worker)</option>
           </select>
@@ -261,7 +261,7 @@
         <div>
           <label>Select Meeting Recordings (.mp3, .m4a, .wav, .ogg, .aac)</label>
           <input type="file" id="audioFilesInput" accept=".mp3,.m4a,.wav,.ogg,.aac,audio/*" multiple />
-          <small style="color:var(--muted);display:block;margin-top:4px;">Files &gt; 12 MB upload in sequential chunks with UI yields so HTTP 413 and browser freezes are avoided.</small>
+          <small style="color:var(--muted);display:block;margin-top:4px;">Files &gt; 12 MB are decoded into 16 kHz mono WAV slices (~8 MB each) with valid headers so API HTTP 400 and HTTP 413 never happen.</small>
         </div>
         <div>
           <label>Live Microphone Recorder (Local Capture)</label>
@@ -295,7 +295,7 @@
         <span id="charCount">Characters: 0</span>
       </div>
       <div class="btn-row">
-        <button id="extractMinutesBtn" class="btn btn-primary">Auto-Extract NUPRC MOM Table</button>
+        <button id="extractMinutesBtn" class="btn btn-primary">Auto-Extract Party-Tagged MOM Table</button>
         <button id="exportTxtBtn" class="btn btn-secondary">Export Verbatim (.txt)</button>
         <button id="exportVerbatimDocxBtn" class="btn btn-secondary">Export Verbatim (.docx)</button>
       </div>
@@ -303,7 +303,7 @@
 
     <div class="card">
       <h2>Optional Local LLM / JSON Import</h2>
-      <textarea id="llmJsonInput" rows="3" placeholder='{"safetyBrief":"...","agenda":[{"sn":"1","topic":"OPENING REMARKS","discussion":"...","actions":"...","party":"ALL"}],"resolutions":[{"topic":"RESOLUTIONS","discussion":"...","party":"CONOG"}],"closing":"..."}'></textarea>
+      <textarea id="llmJsonInput" rows="3" placeholder='{"safetyBrief":"...","agenda":[{"sn":"1","topic":"OPENING REMARKS","discussion":"...","actions":"...","party":"ALL"}],"actions":[{"label":"RESOLUTIONS","details":"...","party":"CONOG"}],"closing":"..."}'></textarea>
       <div class="btn-row">
         <button id="applyJsonBtn" class="btn btn-secondary">Apply JSON to Draft</button>
       </div>
@@ -386,7 +386,7 @@
       <div class="btn-row" style="margin-top:0;justify-content:space-between;">
         <div>
           <strong style="color:var(--green-dark);">Official A4 NUPRC MOM Table Export (.docx)</strong>
-          <div style="font-size:0.82rem;color:var(--muted);">11906×16838 DXA • Times New Roman • 10,500 DXA Fixed Tables • Sample MOM Structure</div>
+          <div style="font-size:0.82rem;color:var(--muted);">11906×16838 DXA • Times New Roman • 10,500 DXA Fixed Tables • Party-Tagged MOM Structure</div>
         </div>
         <div class="btn-row" style="margin-top:0;">
           <button id="saveHistoryBtn" class="btn btn-secondary">Save to Offline History</button>
@@ -496,7 +496,6 @@
 
   const yieldToUi = (ms = 50) => new Promise((r) => setTimeout(r, ms));
 
-  // Offline Web Worker
   const workerCode = `
     import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
     env.allowLocalModels = false;
@@ -558,10 +557,7 @@
     getOfflineWorker().postMessage({ type: 'preload' });
   });
 
-  async function decodeAndResampleWithTimeout(fileOrBlob, timeoutMs = 15000) {
-    if (fileOrBlob.size > 35 * 1024 * 1024) {
-      throw new Error('File exceeds 35 MB safe offline browser memory limit. Use Online Cloud Whisper API mode.');
-    }
+  async function decodeTo16kMono(fileOrBlob, timeoutMs = 25000) {
     const decodeTask = (async () => {
       const arrayBuffer = await fileOrBlob.arrayBuffer();
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -582,9 +578,41 @@
       return rendered.getChannelData(0);
     })();
     const timeoutTask = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Offline audio decoder timed out (15s).')), timeoutMs)
+      setTimeout(() => reject(new Error('Audio decoding timed out. Try converting the file to .mp3 or .wav.')), timeoutMs)
     );
     return Promise.race([decodeTask, timeoutTask]);
+  }
+
+  function encodePcm16kToWavBlob(samples) {
+    const sampleRate = 16000;
+    const dataBytes = samples.length * 2;
+    const buffer = new ArrayBuffer(44 + dataBytes);
+    const view = new DataView(buffer);
+
+    function writeStr(offset, s) {
+      for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+    }
+
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + dataBytes, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, dataBytes, true);
+
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return new Blob([buffer], { type: 'audio/wav' });
   }
 
   function transcribeViaOfflineWorker(pcm16k, onInferring) {
@@ -603,7 +631,6 @@
     });
   }
 
-  // Online Whisper API with 12 MB safe chunks & UI yields
   async function uploadSingleChunkToApi(blobSlice, filename, apiKey, url, model) {
     const formData = new FormData();
     formData.append('file', blobSlice, filename);
@@ -640,30 +667,32 @@
       : 'https://api.openai.com/v1/audio/transcriptions';
     const model = provider === 'groq' ? 'whisper-large-v3-turbo' : 'whisper-1';
 
-    // 12 MB chunks stay safely below 25 MB limit even with multipart overhead
-    const CHUNK_BYTES = 12 * 1024 * 1024;
-    if (fileOrBlob.size <= CHUNK_BYTES) {
-      if (onProgress) onProgress(1, 1);
+    const DIRECT_LIMIT_BYTES = 12 * 1024 * 1024;
+    if (fileOrBlob.size <= DIRECT_LIMIT_BYTES) {
+      if (onProgress) onProgress(1, 1, 'Uploading file...');
       return await uploadSingleChunkToApi(fileOrBlob, filename || 'meeting.mp3', apiKey, url, model);
     }
 
-    const totalChunks = Math.ceil(fileOrBlob.size / CHUNK_BYTES);
-    const ext = (filename && filename.includes('.')) ? filename.split('.').pop() : 'mp3';
+    if (onProgress) onProgress(0, 1, 'Decoding into valid WAV segments...');
+    const pcm16k = await decodeTo16kMono(fileOrBlob, 30000);
+    await yieldToUi(40);
+
+    const sliceSamples = 16000 * 240;
+    const totalChunks = Math.ceil(pcm16k.length / sliceSamples);
     const parts = [];
 
     for (let c = 0; c < totalChunks; c++) {
-      if (onProgress) onProgress(c + 1, totalChunks);
-      const start = c * CHUNK_BYTES;
-      const end = Math.min(fileOrBlob.size, start + CHUNK_BYTES);
-      const slice = fileOrBlob.slice(start, end);
-      const partText = await uploadSingleChunkToApi(slice, `part_${c + 1}.${ext}`, apiKey, url, model);
+      if (onProgress) onProgress(c + 1, totalChunks, `Uploading WAV part ${c + 1}/${totalChunks}...`);
+      const start = c * sliceSamples;
+      const end = Math.min(pcm16k.length, start + sliceSamples);
+      const wavBlob = encodePcm16kToWavBlob(pcm16k.subarray(start, end));
+      const partText = await uploadSingleChunkToApi(wavBlob, `segment_${c + 1}.wav`, apiKey, url, model);
       if (partText) parts.push(partText);
       await yieldToUi(60);
     }
     return parts.join(' ');
   }
 
-  // NUPRC Emblem Canvas
   function drawNuprcEmblem(canvas) {
     const ctx = canvas.getContext('2d');
     const W = 320, H = 320, cx = 160, cy = 160;
@@ -737,7 +766,6 @@
     });
   });
 
-  // Queue & Recorder
   let audioQueue = [];
   const audioFilesInput = document.getElementById('audioFilesInput');
   const audioQueueList = document.getElementById('audioQueueList');
@@ -841,16 +869,16 @@
         let text = '';
 
         if (engine === 'online') {
-          text = await transcribeViaOnlineApiChunked(item.blob, item.name, (part, total) => {
-            item.status = total > 1 ? `Chunk ${part}/${total}...` : 'Uploading...';
+          text = await transcribeViaOnlineApiChunked(item.blob, item.name, (part, total, labelText) => {
+            item.status = total > 1 ? `WAV ${part}/${total}...` : 'Uploading...';
             updateQueueUI();
-            transcribeStatus.textContent = `Online API (${i + 1}/${audioQueue.length}): ${item.name} [Chunk ${part}/${total}]`;
+            transcribeStatus.textContent = `Online API (${i + 1}/${audioQueue.length}): ${item.name} — ${labelText}`;
           });
         } else {
           item.status = 'Decoding...';
           updateQueueUI();
           transcribeStatus.textContent = `Offline Worker (${i + 1}/${audioQueue.length}): Decoding ${item.name}...`;
-          const pcm16k = await decodeAndResampleWithTimeout(item.blob, 15000);
+          const pcm16k = await decodeTo16kMono(item.blob, 25000);
           text = await transcribeViaOfflineWorker(pcm16k, () => {
             item.status = 'Transcribing...';
             updateQueueUI();
@@ -866,7 +894,7 @@
         updateQueueUI();
       }
 
-      transcribeStatus.textContent = 'Completed! Extracting NUPRC MOM table...';
+      transcribeStatus.textContent = 'Completed! Extracting party-tagged MOM table...';
       runDeterministicExtractor();
       document.querySelector('nav.tabs button[data-tab="tab-transcript"]').click();
     } catch (err) {
@@ -886,7 +914,6 @@
   }
   verbatimText.addEventListener('input', updateTranscriptStats);
 
-  // Sample-aligned MOM state
   let state = {
     attendance: [
       { sn: '1', name: 'Bighoro, S.E', company: 'NUPRC', email: 'Bighoro.s.e@nuprc.gov.ng', mode: 'PHYSICAL' },
@@ -896,23 +923,39 @@
       {
         sn: '1',
         topic: 'OPENING REMARKS',
-        discussion: 'The NUPRC Coordinator welcomed all parties present and emphasized peaceful collaboration and timely resolution of community issues.',
+        discussion: '[NUPRC] The Coordinator welcomed all parties present and emphasized peaceful collaboration and timely resolution of community issues.',
         actions: '',
-        party: ''
+        party: 'NUPRC'
       },
       {
         sn: '2',
         topic: 'INCIDENT & PETITION REVIEW',
-        discussion: 'Stakeholders reviewed the incident report, operational findings, and community demands.',
+        discussion: '[HOST COMMUNITY] Stakeholders presented incident findings and demands.\n[CONOG] Operator representative responded to operational points.',
         actions: 'Conduct joint verification and submit report.',
-        party: 'OPERATOR / NUPRC'
+        party: 'CONOG / NUPRC'
       }
     ],
     actions: [
-      { label: 'ACTIONABLE ITEMS', details: 'Follow-up actions and deliverables agreed during the sitting.', party: 'ACTION PARTY/TIMELINE' },
-      { label: 'RESOLUTIONS', details: 'Parties agreed to reconvene and report progress on scheduled date.', party: 'ALL' }
+      { label: 'ACTIONABLE ITEMS', details: '[CONOG / NUPRC] Follow-up actions and deliverables agreed during the sitting.', party: 'CONOG / NUPRC' },
+      { label: 'RESOLUTIONS', details: '[ALL PARTIES] Parties agreed to reconvene and report progress on scheduled date.', party: 'ALL' }
     ]
   };
+
+  // Detect all parties referenced in a statement and return a clean party label + short tag
+  function detectPartiesInText(text) {
+    const found = [];
+    const add = (label) => { if (!found.includes(label)) found.push(label); };
+
+    if (/\b(nuprc|commission|coordinator|field office|adrc|regulator|regulatory)\b/i.test(text)) add('NUPRC');
+    if (/\b(conog|continental oil|operator|company|management|clamping|flow line|pipeline|well head|wellhead)\b/i.test(text)) add('CONOG');
+    if (/\b(host community|community|koluama|hcdt|youths|trust|petition|fishermen|residents|clan)\b/i.test(text)) add('HOST COMMUNITY');
+    if (/\b(nosdra|ministry of environment|government|agency|agencies|joint investigation|jiv)\b/i.test(text)) add('JOINT / AGENCIES');
+    if (/\b(both parties|all parties|everyone|collectively|unanimously|adjourned)\b/i.test(text)) add('ALL');
+
+    if (found.length === 0) return { label: 'ALL', tag: 'GENERAL' };
+    if (found.length > 2) return { label: found.join(' / '), tag: 'MULTI-PARTY' };
+    return { label: found.join(' / '), tag: found[0] };
+  }
 
   function runDeterministicExtractor() {
     const raw = verbatimText.value.trim();
@@ -926,30 +969,66 @@
 
     const safetyHits = sentences.filter((s) => /\b(safety|hse|hazard|muster|ppe|emergency|incident|health)\b/i.test(s));
     if (safetyHits.length > 0) {
-      document.getElementById('safetyBriefInput').value = safetyHits.slice(0, 2).join(' ');
+      const sParty = detectPartiesInText(safetyHits[0]).tag;
+      document.getElementById('safetyBriefInput').value = `[${sParty}] ${safetyHits.slice(0, 2).join(' ')}`;
     }
 
     const bodySentences = sentences.filter((s) => !safetyHits.includes(s));
     const chunkSize = Math.max(3, Math.ceil(bodySentences.length / 3));
     const newAgenda = [];
+
     for (let i = 0; i < bodySentences.length; i += chunkSize) {
       const slice = bodySentences.slice(i, i + chunkSize);
+
+      // Tag each sentence by party so multi-party turns are clearly labeled inside DISCUSSION
+      const taggedLines = slice.map((sent) => {
+        const p = detectPartiesInText(sent);
+        return `[${p.tag}] ${sent}`;
+      });
+
+      const chunkParties = detectPartiesInText(slice.join(' '));
+      const actionSentences = slice.filter((s) =>
+        /\b(action|must|shall|direct|directed|agree|agreed|resolve|resolved|submit|report|hand over|handed over|deadline|by )\b/i.test(s)
+      );
+
       newAgenda.push({
         sn: String(newAgenda.length + 1),
         topic: i === 0 ? 'OPENING REMARKS' : `AGENDA ITEM ${newAgenda.length + 1}`,
-        discussion: slice.join(' '),
-        actions: '',
-        party: ''
+        discussion: taggedLines.join('\n'),
+        actions: actionSentences.join(' '),
+        party: chunkParties.label
       });
     }
     if (newAgenda.length > 0) state.agenda = newAgenda;
 
-    const actionHits = sentences.filter((s) => /\b(action|must|shall|agree|resolve|submit|report|deadline|by )\b/i.test(s));
-    if (actionHits.length > 0) {
-      state.actions = [
-        { label: 'ACTIONABLE ITEMS', details: actionHits.slice(0, 4).join(' '), party: 'ASSIGNED PARTIES' },
-        { label: 'RESOLUTIONS', details: actionHits.slice(4, 8).join(' ') || 'Agreed by parties present.', party: 'ALL' }
-      ];
+    const actionHits = sentences.filter((s) =>
+      /\b(action|must|shall|direct|directed|submit|report|hand over|handed over|deadline|by )\b/i.test(s)
+    );
+    const resHits = sentences.filter((s) =>
+      /\b(agree|agreed|resolve|resolved|unanimously|adjourn|adjourned|reconvene|revert)\b/i.test(s)
+    );
+
+    const actionLines = (actionHits.length > 0 ? actionHits.slice(0, 5) : bodySentences.slice(0, 2)).map((s) => {
+      const p = detectPartiesInText(s);
+      return `[${p.tag}] ${s}`;
+    });
+    const actionPartyLabel = detectPartiesInText(actionLines.join(' ')).label;
+
+    const resLines = (resHits.length > 0 ? resHits.slice(0, 5) : bodySentences.slice(-2)).map((s) => {
+      const p = detectPartiesInText(s);
+      return `[${p.tag}] ${s}`;
+    });
+    const resPartyLabel = detectPartiesInText(resLines.join(' ')).label;
+
+    state.actions = [
+      { label: 'ACTIONABLE ITEMS', details: actionLines.join('\n'), party: actionPartyLabel },
+      { label: 'RESOLUTIONS', details: resLines.join('\n'), party: resPartyLabel }
+    ];
+
+    const closingHit = [...sentences].reverse().find((s) => /\b(adjourn|closing|thank you|end of meeting|peaceful co-existence)\b/i.test(s));
+    if (closingHit) {
+      const cParty = detectPartiesInText(closingHit).tag;
+      document.getElementById('closingInput').value = `[${cParty}] ${closingHit}`;
     }
 
     renderDraftTables();
@@ -1005,8 +1084,8 @@
           <div><label>S/N (or blank for sub-row)</label><input type="text" value="${escapeHtml(ag.sn)}" data-f="sn"></div>
           <div><label>Topic / Heading</label><input type="text" value="${escapeHtml(ag.topic)}" data-f="topic" style="font-weight:700;"></div>
         </div>
-        <label>Discussion</label>
-        <textarea rows="3" data-f="discussion">${escapeHtml(ag.discussion)}</textarea>
+        <label>Discussion (Party-Tagged)</label>
+        <textarea rows="4" data-f="discussion">${escapeHtml(ag.discussion)}</textarea>
         <div class="grid-2" style="margin-top:6px;">
           <div><label>Identified Actions</label><input type="text" value="${escapeHtml(ag.actions)}" data-f="actions"></div>
           <div><label>Action Party / Timeline</label><input type="text" value="${escapeHtml(ag.party)}" data-f="party"></div>
@@ -1026,7 +1105,7 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><input type="text" value="${escapeHtml(act.label)}" data-f="label" style="font-weight:700;"></td>
-        <td><textarea rows="2" data-f="details">${escapeHtml(act.details)}</textarea></td>
+        <td><textarea rows="3" data-f="details">${escapeHtml(act.details)}</textarea></td>
         <td><input type="text" value="${escapeHtml(act.party)}" data-f="party"></td>
         <td><button class="btn btn-danger" style="padding:4px 8px;">X</button></td>
       `;
@@ -1058,7 +1137,6 @@
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
   }
 
-  // Official A4 .docx matching sample MOM table layout (10,500 DXA fixed width)
   function buildCellXml(text, widthDxa, opts = {}) {
     const { bold = false, sizeHalfPt = 22, fill = null, color = '000000', align = 'left', vAlign = 'top' } = opts;
     const shdXml = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '';
@@ -1119,7 +1197,6 @@
     const cxEmu = 822960, cyEmu = 822960;
     const titleText = document.getElementById('metaTitle').value.toUpperCase();
 
-    // Top Title & Emblem Banner Table (10,500 DXA: 7900 + 2600)
     const bannerTable = buildFixedTableXml([7900, 2600], `
       <w:tr>
         ${buildCellXml(titleText, 7900, { bold: true, sizeHalfPt: 26, color: '064E3B', vAlign: 'center' })}
@@ -1153,7 +1230,6 @@
         <w:tr>${buildCellXml(verbatimText.value || 'No transcript recorded.', 10500)}</w:tr>
       `);
     } else {
-      // Metadata Table (10,500 DXA: 3500 + 3500 + 3500)
       const metaTable = buildFixedTableXml([3500, 3500, 3500], `
         <w:tr>
           ${buildCellXml('Doc. Title', 3500, { bold: true, fill: 'E5E7EB' })}
@@ -1171,7 +1247,6 @@
         </w:tr>
       `);
 
-      // Attendance Table (10,500 DXA: 700 + 3100 + 2100 + 3000 + 1600)
       const attHeader = `
         <w:tr>${buildCellXml('ATTENDANCE', 10500, { bold: true, fill: 'D1FAE5', color: '064E3B' })}</w:tr>
         <w:tr>
@@ -1191,7 +1266,6 @@
         </w:tr>`).join('');
       const attTable = buildFixedTableXml([700, 3100, 2100, 3000, 1600], attHeader + attRows);
 
-      // Main 4-Column MOM Table (10,500 DXA: 700 + 5200 + 2600 + 2000)
       const momHeader = `
         <w:tr>
           ${buildCellXml('S/N', 700, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}
@@ -1271,7 +1345,7 @@
 
     zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
     zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
-    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><Relationship Id="rIdEmblem" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/emblem.png"/></Relationships>`);
+    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdEmblem" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/emblem.png"/></Relationships>`);
     zip.file('word/document.xml', documentXml);
 
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
@@ -1293,8 +1367,7 @@
     URL.revokeObjectURL(a.href);
   });
 
-  // IndexedDB History
-  const DB_NAME = 'nuprc_minute_db_v4', STORE_NAME = 'sessions';
+  const DB_NAME = 'nuprc_minute_db_v6', STORE_NAME = 'sessions';
   function openDb() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, 1);
