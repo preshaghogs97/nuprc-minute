@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#064E3B" />
-  <title>NUPRC Minute — Offline PWA</title>
+  <title>NUPRC Minute — Hybrid Offline/Online PWA</title>
   <link rel="manifest" href="./manifest.json" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
@@ -99,9 +99,10 @@
     }
 
     .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
 
     label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
-    input[type="text"], input[type="date"], textarea, select {
+    input[type="text"], input[type="password"], input[type="date"], textarea, select {
       width: 100%;
       padding: 8px 10px;
       border: 1px solid var(--border);
@@ -181,6 +182,16 @@
       color: var(--muted);
       margin-top: 6px;
     }
+    .error-box {
+      background: #FEF2F2;
+      border: 1px solid #FCA5A5;
+      color: #991B1B;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      margin-top: 8px;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -190,12 +201,12 @@
     <canvas id="headerEmblem" width="320" height="320"></canvas>
     <div>
       <h1>NUPRC Minute</h1>
-      <small>Nigerian Upstream Petroleum Regulatory Commission • Offline PWA</small>
+      <small>Hybrid Online Whisper API + Offline Web Worker PWA</small>
     </div>
   </div>
   <div class="status-bar">
     <span id="netBadge" class="badge ok">Online</span>
-    <span id="modelBadge" class="badge warn">Whisper Model: Not Loaded</span>
+    <span id="engineBadge" class="badge ok">Engine: Auto (Online + Offline)</span>
     <button id="installBtn" class="btn btn-gold" style="display:none;">Install App</button>
   </div>
 </header>
@@ -209,15 +220,36 @@
 </nav>
 
 <main>
+  <!-- TAB 1: AUDIO & TRANSCRIBE -->
   <section id="tab-audio" class="panel active">
     <div class="card">
-      <h2>Step 1A: Offline Whisper Engine (Xenova/whisper-base.en Quantized)</h2>
-      <p style="font-size:0.86rem;color:var(--muted);margin-top:0;">
-        Download &amp; cache the ~75 MB quantized Whisper model once while online. Afterward, enable Airplane Mode anytime—transcription runs 100% locally on your device CPU via WebAssembly.
-      </p>
+      <h2>Step 1A: Hybrid Speech-to-Text Engine Configuration</h2>
+      <div class="grid-3">
+        <div>
+          <label>Transcription Mode</label>
+          <select id="engineMode">
+            <option value="auto">Auto (Fast Online API if Key &amp; Internet, else Offline Worker)</option>
+            <option value="online">Online Cloud Whisper API Only (Fastest, Native .m4a)</option>
+            <option value="offline">Offline Web Worker Only (Zero Internet / Airplane Mode)</option>
+          </select>
+        </div>
+        <div>
+          <label>Groq / OpenAI-Compatible API Key (Saved Locally)</label>
+          <input type="password" id="apiKeyInput" placeholder="gsk_... (Free key from console.groq.com)" />
+        </div>
+        <div>
+          <label>API Endpoint &amp; Model</label>
+          <select id="apiProviderSelect">
+            <option value="groq">Groq Whisper (whisper-large-v3-turbo • Free Tier)</option>
+            <option value="openai">OpenAI Whisper (whisper-1)</option>
+          </select>
+        </div>
+      </div>
+
       <div class="btn-row">
-        <button id="preloadModelBtn" class="btn btn-primary">Download / Verify Offline Model</button>
-        <span id="modelStatusText" style="font-size:0.84rem;color:var(--muted);">Idle</span>
+        <button id="saveApiBtn" class="btn btn-secondary">Save API Key Locally</button>
+        <button id="preloadWorkerBtn" class="btn btn-primary">Cache Offline Worker Model (~40 MB)</button>
+        <span id="workerStatusText" style="font-size:0.84rem;color:var(--muted);">Offline worker ready on demand.</span>
       </div>
       <div class="progress-wrap"><div id="modelProgress" class="progress-bar"></div></div>
     </div>
@@ -228,10 +260,10 @@
         <div>
           <label>Select Meeting Recordings (.mp3, .m4a, .wav, .ogg, .aac)</label>
           <input type="file" id="audioFilesInput" accept=".mp3,.m4a,.wav,.ogg,.aac,audio/*" multiple />
-          <small style="color:var(--muted);display:block;margin-top:4px;">Files are automatically sorted chronologically by timestamp/filename.</small>
+          <small style="color:var(--muted);display:block;margin-top:4px;">Sorted chronologically. Online API handles .m4a natively up to 25 MB per file.</small>
         </div>
         <div>
-          <label>Live Microphone Recorder (Offline Local Capture)</label>
+          <label>Live Microphone Recorder (Local Capture)</label>
           <div class="btn-row" style="margin-top:0;">
             <button id="recStartBtn" class="btn btn-primary">Start Recording</button>
             <button id="recStopBtn" class="btn btn-danger" disabled>Stop &amp; Queue</button>
@@ -243,14 +275,16 @@
       <div id="audioQueueList" style="margin-top:14px;"></div>
 
       <div class="btn-row">
-        <button id="transcribeAllBtn" class="btn btn-primary" disabled>Transcribe Queue Offline</button>
+        <button id="transcribeAllBtn" class="btn btn-primary" disabled>Transcribe Queue Now</button>
         <button id="clearQueueBtn" class="btn btn-secondary">Clear Queue</button>
       </div>
       <div class="progress-wrap"><div id="transcribeProgress" class="progress-bar"></div></div>
       <div id="transcribeStatus" style="font-size:0.84rem;color:var(--muted);margin-top:6px;">No files queued.</div>
+      <div id="transcribeErrorBox" class="error-box"></div>
     </div>
   </section>
 
+  <!-- TAB 2: VERBATIM TRANSCRIPT -->
   <section id="tab-transcript" class="panel">
     <div class="card">
       <h2>Raw Verbatim Transcript Editor</h2>
@@ -269,7 +303,7 @@
     <div class="card">
       <h2>Optional Local LLM / WebLLM JSON Import</h2>
       <p style="font-size:0.84rem;color:var(--muted);margin-top:0;">
-        If you run a local model or WebLLM prompt externally, paste structured JSON (<code>{"safetyBrief":"...","agenda":[...],"actions":[...],"closing":"..."}</code>) below to populate the Draft Editor directly.
+        Paste structured JSON (<code>{"safetyBrief":"...","agenda":[...],"actions":[...],"closing":"..."}</code>) below to populate the Draft Editor directly.
       </p>
       <textarea id="llmJsonInput" rows="4" placeholder='{"safetyBrief":"Fire exits reviewed.","agenda":[{"title":"1.0 Opening","discussion":"...","resolution":"..."}],"actions":[{"item":"Submit report","owner":"Engr. A","deadline":"2026-12-01"}],"closing":"Meeting adjourned at 14:00 hrs."}'></textarea>
       <div class="btn-row">
@@ -278,6 +312,7 @@
     </div>
   </section>
 
+  <!-- TAB 3: DRAFT MINUTES EDITOR -->
   <section id="tab-draft" class="panel">
     <div class="card">
       <h2>Header Metadata (Official NUPRC Format)</h2>
@@ -324,7 +359,7 @@
 
     <div class="card">
       <h2>Safety Brief (Unnumbered Opening Section)</h2>
-      <textarea id="safetyBriefInput" rows="3" placeholder="HSE / Safety moment delivered prior to agenda deliberation...">Participants were reminded of emergency muster points, ergonomic posture, and strict adherence to NUPRC HSE protocols.</textarea>
+      <textarea id="safetyBriefInput" rows="3">Participants were reminded of emergency muster points, ergonomic posture, and strict adherence to NUPRC HSE protocols.</textarea>
     </div>
 
     <div class="card">
@@ -365,6 +400,7 @@
     </div>
   </section>
 
+  <!-- TAB 4: ACTION ITEMS -->
   <section id="tab-actions" class="panel">
     <div class="card">
       <h2>Actionable Items Tracker</h2>
@@ -380,6 +416,7 @@
     </div>
   </section>
 
+  <!-- TAB 5: HISTORY -->
   <section id="tab-history" class="panel">
     <div class="card">
       <h2>Saved Minutes (Offline IndexedDB Storage)</h2>
@@ -389,11 +426,7 @@
 </main>
 
 <script type="module">
-  import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
-
-  env.allowLocalModels = false;
-  env.useBrowserCache = true;
-
+  // --- 1. SERVICE WORKER & PWA INSTALL ---
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(console.warn);
   }
@@ -413,20 +446,212 @@
     installBtn.style.display = 'none';
   });
 
+  // --- 2. HYBRID ENGINE SETTINGS (LOCALSTORAGE) ---
+  const engineModeEl = document.getElementById('engineMode');
+  const apiKeyEl = document.getElementById('apiKeyInput');
+  const apiProviderEl = document.getElementById('apiProviderSelect');
   const netBadge = document.getElementById('netBadge');
-  function updateNetStatus() {
+  const engineBadge = document.getElementById('engineBadge');
+
+  apiKeyEl.value = localStorage.getItem('nuprc_whisper_api_key') || '';
+  apiProviderEl.value = localStorage.getItem('nuprc_whisper_provider') || 'groq';
+  engineModeEl.value = localStorage.getItem('nuprc_whisper_mode') || 'auto';
+
+  function resolveActiveEngine() {
+    const mode = engineModeEl.value;
+    const hasKey = apiKeyEl.value.trim().length > 5;
+    if (mode === 'online') return 'online';
+    if (mode === 'offline') return 'offline';
+    return (navigator.onLine && hasKey) ? 'online' : 'offline';
+  }
+
+  function updateStatusBadges() {
     if (navigator.onLine) {
-      netBadge.textContent = 'Online (Ready to Cache)';
+      netBadge.textContent = 'Online';
       netBadge.className = 'badge ok';
     } else {
       netBadge.textContent = 'Offline / Airplane Mode';
       netBadge.className = 'badge warn';
     }
+    const active = resolveActiveEngine();
+    if (active === 'online') {
+      engineBadge.textContent = 'Active Engine: Online Cloud Whisper';
+      engineBadge.className = 'badge ok';
+    } else {
+      engineBadge.textContent = 'Active Engine: Offline Web Worker';
+      engineBadge.className = 'badge warn';
+    }
   }
-  window.addEventListener('online', updateNetStatus);
-  window.addEventListener('offline', updateNetStatus);
-  updateNetStatus();
 
+  document.getElementById('saveApiBtn').addEventListener('click', () => {
+    localStorage.setItem('nuprc_whisper_api_key', apiKeyEl.value.trim());
+    localStorage.setItem('nuprc_whisper_provider', apiProviderEl.value);
+    localStorage.setItem('nuprc_whisper_mode', engineModeEl.value);
+    updateStatusBadges();
+    alert('API key & engine preference saved locally in your browser.');
+  });
+  engineModeEl.addEventListener('change', () => {
+    localStorage.setItem('nuprc_whisper_mode', engineModeEl.value);
+    updateStatusBadges();
+  });
+  apiKeyEl.addEventListener('input', updateStatusBadges);
+  window.addEventListener('online', updateStatusBadges);
+  window.addEventListener('offline', updateStatusBadges);
+  updateStatusBadges();
+
+  // --- 3. DEDICATED OFFLINE WEB WORKER (NON-BLOCKING WHISPER-TINY.EN) ---
+  const workerCode = `
+    import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+    env.allowLocalModels = false;
+    env.useBrowserCache = true;
+
+    let asr = null;
+
+    async function getPipeline() {
+      if (asr) return asr;
+      asr = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
+        quantized: true,
+        progress_callback: (data) => {
+          if (data.status === 'progress' && data.progress) {
+            self.postMessage({ type: 'progress', progress: Math.round(data.progress), file: data.file || 'model' });
+          }
+        }
+      });
+      return asr;
+    }
+
+    self.onmessage = async (e) => {
+      const { type, id, pcm16k } = e.data;
+      try {
+        if (type === 'preload') {
+          await getPipeline();
+          self.postMessage({ type: 'ready' });
+        } else if (type === 'transcribe') {
+          const pipe = await getPipeline();
+          self.postMessage({ type: 'inferring', id });
+          const out = await pipe(pcm16k, { chunk_length_s: 30, stride_length_s: 5, return_timestamps: false });
+          self.postMessage({ type: 'result', id, text: (out.text || '').trim() });
+        }
+      } catch (err) {
+        self.postMessage({ type: 'error', id, message: err.message || String(err) });
+      }
+    };
+  `;
+
+  let offlineWorker = null;
+  let workerReady = false;
+  const workerStatusText = document.getElementById('workerStatusText');
+  const modelProgress = document.getElementById('modelProgress');
+
+  function getOfflineWorker() {
+    if (!offlineWorker) {
+      const blob = new Blob([workerCode], { type: 'application/javascript' });
+      offlineWorker = new Worker(URL.createObjectURL(blob), { type: 'module' });
+      offlineWorker.onmessage = (e) => {
+        const msg = e.data;
+        if (msg.type === 'progress') {
+          modelProgress.style.width = `${msg.progress}%`;
+          workerStatusText.textContent = `Caching offline ${msg.file}: ${msg.progress}%`;
+        } else if (msg.type === 'ready') {
+          workerReady = true;
+          modelProgress.style.width = '100%';
+          workerStatusText.textContent = 'Offline Worker cached & ready (whisper-tiny.en).';
+        }
+      };
+    }
+    return offlineWorker;
+  }
+
+  document.getElementById('preloadWorkerBtn').addEventListener('click', () => {
+    const w = getOfflineWorker();
+    workerStatusText.textContent = 'Downloading lightweight offline model in background worker...';
+    w.postMessage({ type: 'preload' });
+  });
+
+  // Safe 16 kHz Mono Resampler with 15-second timeout guard so UI never hangs
+  async function decodeAndResampleWithTimeout(fileOrBlob, timeoutMs = 15000) {
+    const decodeTask = (async () => {
+      const arrayBuffer = await fileOrBlob.arrayBuffer();
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const tempCtx = new AudioCtx();
+      let audioBuffer;
+      try {
+        audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
+      } finally {
+        await tempCtx.close();
+      }
+      const targetRate = 16000;
+      const frameCount = Math.ceil(audioBuffer.duration * targetRate);
+      const offlineCtx = new OfflineAudioContext(1, frameCount, targetRate);
+      const source = offlineCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(offlineCtx.destination);
+      source.start(0);
+      const rendered = await offlineCtx.startRendering();
+      return rendered.getChannelData(0);
+    })();
+
+    const timeoutTask = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Browser audio decoder timed out (15s). Use Online Whisper API mode or convert .m4a to .mp3/.wav.')), timeoutMs)
+    );
+    return Promise.race([decodeTask, timeoutTask]);
+  }
+
+  function transcribeViaOfflineWorker(pcm16k, onInferring) {
+    return new Promise((resolve, reject) => {
+      const w = getOfflineWorker();
+      const reqId = crypto.randomUUID();
+      const handler = (e) => {
+        const msg = e.data;
+        if (msg.id && msg.id !== reqId) return;
+        if (msg.type === 'inferring') {
+          onInferring();
+        } else if (msg.type === 'result') {
+          w.removeEventListener('message', handler);
+          resolve(msg.text);
+        } else if (msg.type === 'error') {
+          w.removeEventListener('message', handler);
+          reject(new Error(msg.message));
+        }
+      };
+      w.addEventListener('message', handler);
+      w.postMessage({ type: 'transcribe', id: reqId, pcm16k }, [pcm16k.buffer]);
+    });
+  }
+
+  // --- 4. FAST ONLINE CLOUD WHISPER API (GROQ / OPENAI) ---
+  async function transcribeViaOnlineApi(fileOrBlob, filename) {
+    const apiKey = apiKeyEl.value.trim();
+    if (!apiKey) {
+      throw new Error('No API key entered. Paste your Groq/OpenAI API key in Step 1A or switch to Offline Web Worker mode.');
+    }
+    const provider = apiProviderEl.value;
+    const url = provider === 'groq'
+      ? 'https://api.groq.com/openai/v1/audio/transcriptions'
+      : 'https://api.openai.com/v1/audio/transcriptions';
+    const model = provider === 'groq' ? 'whisper-large-v3-turbo' : 'whisper-1';
+
+    const formData = new FormData();
+    formData.append('file', fileOrBlob, filename || 'meeting.m4a');
+    formData.append('model', model);
+    formData.append('language', 'en');
+    formData.append('response_format', 'json');
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`API HTTP ${res.status}: ${errBody.slice(0, 220)}`);
+    }
+    const data = await res.json();
+    return (data.text || '').trim();
+  }
+
+  // --- 5. PROCEDURAL 320x320 NUPRC EMBLEM CANVAS ---
   function drawNuprcEmblem(canvas) {
     const ctx = canvas.getContext('2d');
     const W = 320, H = 320, cx = 160, cy = 160;
@@ -537,9 +762,9 @@
     ctx.restore();
   }
 
-  const headerCanvas = document.getElementById('headerEmblem');
-  drawNuprcEmblem(headerCanvas);
+  drawNuprcEmblem(document.getElementById('headerEmblem'));
 
+  // --- 6. TAB NAVIGATION ---
   document.querySelectorAll('nav.tabs button').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('nav.tabs button').forEach((b) => b.classList.remove('active'));
@@ -549,63 +774,15 @@
     });
   });
 
-  let transcriber = null;
-  const modelBadge = document.getElementById('modelBadge');
-  const modelStatusText = document.getElementById('modelStatusText');
-  const modelProgress = document.getElementById('modelProgress');
-  const preloadModelBtn = document.getElementById('preloadModelBtn');
-  const transcribeAllBtn = document.getElementById('transcribeAllBtn');
-
-  async function ensureWhisperLoaded() {
-    if (transcriber) return transcriber;
-    preloadModelBtn.disabled = true;
-    modelStatusText.textContent = 'Loading Xenova/whisper-base.en (quantized)...';
-    try {
-      transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-base.en', {
-        quantized: true,
-        progress_callback: (data) => {
-          if (data.status === 'progress' && data.progress) {
-            modelProgress.style.width = `${Math.round(data.progress)}%`;
-            modelStatusText.textContent = `Caching ${data.file || 'weights'}: ${Math.round(data.progress)}%`;
-          }
-        }
-      });
-      modelProgress.style.width = '100%';
-      modelBadge.textContent = 'Whisper Model: Cached & Ready';
-      modelBadge.className = 'badge ok';
-      modelStatusText.textContent = 'Model ready for 100% offline Airplane Mode transcription.';
-      updateQueueUI();
-      return transcriber;
-    } catch (err) {
-      modelStatusText.textContent = 'Error loading model: ' + err.message;
-      preloadModelBtn.disabled = false;
-      throw err;
-    }
-  }
-
-  preloadModelBtn.addEventListener('click', ensureWhisperLoaded);
-
-  async function decodeAndResampleTo16kMono(fileOrBlob) {
-    const arrayBuffer = await fileOrBlob.arrayBuffer();
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const tempCtx = new AudioCtx();
-    const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
-    await tempCtx.close();
-
-    const targetRate = 16000;
-    const frameCount = Math.ceil(audioBuffer.duration * targetRate);
-    const offlineCtx = new OfflineAudioContext(1, frameCount, targetRate);
-    const source = offlineCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(offlineCtx.destination);
-    source.start(0);
-    const rendered = await offlineCtx.startRendering();
-    return rendered.getChannelData(0);
-  }
-
+  // --- 7. MULTI-FILE QUEUE, MIC RECORDER & HYBRID EXECUTION ---
   let audioQueue = [];
   const audioFilesInput = document.getElementById('audioFilesInput');
   const audioQueueList = document.getElementById('audioQueueList');
+  const transcribeAllBtn = document.getElementById('transcribeAllBtn');
+  const verbatimText = document.getElementById('verbatimText');
+  const transcribeProgress = document.getElementById('transcribeProgress');
+  const transcribeStatus = document.getElementById('transcribeStatus');
+  const transcribeErrorBox = document.getElementById('transcribeErrorBox');
 
   function updateQueueUI() {
     audioQueue.sort((a, b) => a.timestamp - b.timestamp || a.name.localeCompare(b.name));
@@ -614,11 +791,12 @@
       const div = document.createElement('div');
       div.className = 'queue-item';
       const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const mb = (item.blob.size / (1024 * 1024)).toFixed(1);
       div.innerHTML = `
-        <span><strong>#${idx + 1}</strong> ${item.name} <small style="color:#6B7280;">(${timeStr})</small></span>
+        <span><strong>#${idx + 1}</strong> ${item.name} <small style="color:#6B7280;">(${mb} MB • ${timeStr})</small></span>
         <span>
           <span class="badge ${item.status === 'Done' ? 'ok' : 'warn'}" style="margin-right:6px;">${item.status}</span>
-          <button class="btn btn-secondary" style="padding:3px 8px;font-size:0.75rem;" data-del="${item.id}">Remove</button>
+          <button class="btn btn-secondary" style="padding:3px 8px;font-size:0.75rem;">Remove</button>
         </span>
       `;
       div.querySelector('button').addEventListener('click', () => {
@@ -631,8 +809,7 @@
   }
 
   audioFilesInput.addEventListener('change', (e) => {
-    const files = Array.from(e.target.files || []);
-    files.forEach((f) => {
+    Array.from(e.target.files || []).forEach((f) => {
       audioQueue.push({
         id: crypto.randomUUID(),
         name: f.name,
@@ -647,9 +824,11 @@
 
   document.getElementById('clearQueueBtn').addEventListener('click', () => {
     audioQueue = [];
+    transcribeErrorBox.style.display = 'none';
     updateQueueUI();
   });
 
+  // Live Mic Recorder
   let mediaRecorder = null;
   let recChunks = [];
   let recInterval = null;
@@ -682,54 +861,53 @@
       recTimer.textContent = '00:00';
       recInterval = setInterval(() => {
         recSeconds++;
-        const m = String(Math.floor(recSeconds / 60)).padStart(2, '0');
-        const s = String(recSeconds % 60).padStart(2, '0');
-        recTimer.textContent = `${m}:${s}`;
+        recTimer.textContent = `${String(Math.floor(recSeconds / 60)).padStart(2, '0')}:${String(recSeconds % 60).padStart(2, '0')}`;
       }, 1000);
       recStartBtn.disabled = true;
       recStopBtn.disabled = false;
     } catch (err) {
-      alert('Microphone permission denied or unavailable: ' + err.message);
+      alert('Microphone access error: ' + err.message);
     }
   });
 
   recStopBtn.addEventListener('click', () => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-    }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     clearInterval(recInterval);
     recStartBtn.disabled = false;
     recStopBtn.disabled = true;
   });
 
-  const verbatimText = document.getElementById('verbatimText');
-  const transcribeProgress = document.getElementById('transcribeProgress');
-  const transcribeStatus = document.getElementById('transcribeStatus');
-
   transcribeAllBtn.addEventListener('click', async () => {
     if (audioQueue.length === 0) return;
     transcribeAllBtn.disabled = true;
+    transcribeErrorBox.style.display = 'none';
+    const engine = resolveActiveEngine();
+
     try {
-      const asr = await ensureWhisperLoaded();
       let combined = verbatimText.value.trim();
 
       for (let i = 0; i < audioQueue.length; i++) {
         const item = audioQueue[i];
-        item.status = 'Resampling 16kHz...';
-        updateQueueUI();
-        transcribeStatus.textContent = `Processing (${i + 1}/${audioQueue.length}): ${item.name}`;
+        let text = '';
 
-        const pcm16k = await decodeAndResampleTo16kMono(item.blob);
-        item.status = 'Transcribing...';
-        updateQueueUI();
+        if (engine === 'online') {
+          item.status = 'Uploading to Whisper API...';
+          updateQueueUI();
+          transcribeStatus.textContent = `Cloud Whisper (${i + 1}/${audioQueue.length}): ${item.name}`;
+          text = await transcribeViaOnlineApi(item.blob, item.name);
+        } else {
+          item.status = 'Decoding 16kHz (15s limit)...';
+          updateQueueUI();
+          transcribeStatus.textContent = `Offline Worker (${i + 1}/${audioQueue.length}): Decoding ${item.name}...`;
+          const pcm16k = await decodeAndResampleWithTimeout(item.blob, 15000);
 
-        const output = await asr(pcm16k, {
-          chunk_length_s: 30,
-          stride_length_s: 5,
-          return_timestamps: false
-        });
+          text = await transcribeViaOfflineWorker(pcm16k, () => {
+            item.status = 'Worker Transcribing...';
+            updateQueueUI();
+            transcribeStatus.textContent = `Offline Worker (${i + 1}/${audioQueue.length}): Transcribing ${item.name}...`;
+          });
+        }
 
-        const text = (output.text || '').trim();
         combined += (combined ? '\n\n' : '') + `[Recording ${i + 1}: ${item.name}]\n${text}`;
         verbatimText.value = combined;
         updateTranscriptStats();
@@ -739,16 +917,19 @@
         updateQueueUI();
       }
 
-      transcribeStatus.textContent = 'All recordings transcribed offline. Switching to Verbatim Transcript...';
+      transcribeStatus.textContent = 'Transcription complete! Opening Verbatim Transcript...';
       runDeterministicExtractor();
       document.querySelector('nav.tabs button[data-tab="tab-transcript"]').click();
     } catch (err) {
-      transcribeStatus.textContent = 'Transcription error: ' + err.message;
+      transcribeErrorBox.textContent = `Transcription Error (${engine.toUpperCase()} mode): ${err.message}`;
+      transcribeErrorBox.style.display = 'block';
+      transcribeStatus.textContent = 'Stopped due to error above.';
     } finally {
       transcribeAllBtn.disabled = false;
     }
   });
 
+  // --- 8. VERBATIM STATS & DETERMINISTIC NUPRC EXTRACTOR ---
   function updateTranscriptStats() {
     const val = verbatimText.value;
     const words = val.trim() ? val.trim().split(/\s+/).length : 0;
@@ -802,9 +983,7 @@
         });
       }
     });
-    if (extractedActions.length > 0) {
-      state.actions = extractedActions.slice(0, 12);
-    }
+    if (extractedActions.length > 0) state.actions = extractedActions.slice(0, 12);
 
     const bodySentences = sentences.filter((s) => !safetyHits.includes(s));
     const chunkSize = Math.max(3, Math.ceil(bodySentences.length / 3));
@@ -819,14 +998,10 @@
         resolution: resLine
       });
     }
-    if (newAgenda.length > 0) {
-      state.agenda = newAgenda;
-    }
+    if (newAgenda.length > 0) state.agenda = newAgenda;
 
     const closingHit = [...sentences].reverse().find((s) => /\b(adjourn|closing|thank you all|end of meeting)\b/i.test(s));
-    if (closingHit) {
-      document.getElementById('closingInput').value = closingHit;
-    }
+    if (closingHit) document.getElementById('closingInput').value = closingHit;
 
     renderDraftTables();
   }
@@ -850,6 +1025,7 @@
     }
   });
 
+  // --- 9. DRAFT EDITOR & TABLES ---
   function renderDraftTables() {
     const attBody = document.querySelector('#attendanceTable tbody');
     attBody.innerHTML = '';
@@ -932,11 +1108,7 @@
     renderDraftTables();
   });
   document.getElementById('addAgendaBtn').addEventListener('click', () => {
-    state.agenda.push({
-      title: `${state.agenda.length + 1}.0 New Agenda Item`,
-      discussion: '',
-      resolution: ''
-    });
+    state.agenda.push({ title: `${state.agenda.length + 1}.0 New Agenda Item`, discussion: '', resolution: '' });
     renderDraftTables();
   });
   document.getElementById('addActionBtn').addEventListener('click', () => {
@@ -945,45 +1117,24 @@
   });
 
   function escapeHtml(str = '') {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   function escapeXml(str = '') {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
   }
 
+  // --- 10. OFFICIAL A4 NUPRC .DOCX GENERATOR ---
   function buildCellXml(text, widthDxa, opts = {}) {
-    const {
-      bold = false,
-      sizeHalfPt = 24,
-      fill = null,
-      color = '000000',
-      align = 'left',
-      vAlign = 'center'
-    } = opts;
+    const { bold = false, sizeHalfPt = 24, fill = null, color = '000000', align = 'left', vAlign = 'center' } = opts;
     const shdXml = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '';
-    const lines = String(text || '').split('\n');
-    const parasXml = lines.map((line) => `
+    const parasXml = String(text || '').split('\n').map((line) => `
       <w:p>
-        <w:pPr>
-          <w:spacing w:before="40" w:after="40" w:line="260" w:lineRule="auto"/>
-          <w:jc w:val="${align}"/>
-        </w:pPr>
+        <w:pPr><w:spacing w:before="40" w:after="40" w:line="260" w:lineRule="auto"/><w:jc w:val="${align}"/></w:pPr>
         <w:r>
           <w:rPr>
             <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
             ${bold ? '<w:b/>' : ''}
-            <w:color w:val="${color}"/>
-            <w:sz w:val="${sizeHalfPt}"/>
-            <w:szCs w:val="${sizeHalfPt}"/>
+            <w:color w:val="${color}"/><w:sz w:val="${sizeHalfPt}"/><w:szCs w:val="${sizeHalfPt}"/>
           </w:rPr>
           <w:t xml:space="preserve">${escapeXml(line)}</w:t>
         </w:r>
@@ -995,12 +1146,7 @@
           <w:tcW w:w="${widthDxa}" w:type="dxa"/>
           ${shdXml}
           <w:vAlign w:val="${vAlign}"/>
-          <w:tcMar>
-            <w:top w:w="90" w:type="dxa"/>
-            <w:bottom w:w="90" w:type="dxa"/>
-            <w:left w:w="130" w:type="dxa"/>
-            <w:right w:w="130" w:type="dxa"/>
-          </w:tcMar>
+          <w:tcMar><w:top w:w="90" w:type="dxa"/><w:bottom w:w="90" w:type="dxa"/><w:left w:w="130" w:type="dxa"/><w:right w:w="130" w:type="dxa"/></w:tcMar>
         </w:tcPr>
         ${parasXml}
       </w:tc>`;
@@ -1035,17 +1181,12 @@
         <w:pPr>
           <w:spacing w:before="180" w:after="90"/>
           ${shd}
-          <w:pBdr>
-            <w:bottom w:val="single" w:sz="8" w:space="2" w:color="064E3B"/>
-          </w:pBdr>
+          <w:pBdr><w:bottom w:val="single" w:sz="8" w:space="2" w:color="064E3B"/></w:pBdr>
         </w:pPr>
         <w:r>
           <w:rPr>
             <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
-            <w:b/>
-            <w:color w:val="${textColor}"/>
-            <w:sz w:val="26"/>
-            <w:szCs w:val="26"/>
+            <w:b/><w:color w:val="${textColor}"/><w:sz w:val="26"/><w:szCs w:val="26"/>
           </w:rPr>
           <w:t xml:space="preserve">${escapeXml(text)}</w:t>
         </w:r>
@@ -1055,61 +1196,33 @@
   function buildBodyParaXml(text, boldPrefix = '') {
     return `
       <w:p>
-        <w:pPr>
-          <w:spacing w:before="60" w:after="80" w:line="276" w:lineRule="auto"/>
-          <w:jc w:val="both"/>
-        </w:pPr>
-        ${boldPrefix ? `
-        <w:r>
-          <w:rPr>
-            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
-            <w:b/>
-            <w:sz w:val="24"/>
-            <w:szCs w:val="24"/>
-          </w:rPr>
-          <w:t xml:space="preserve">${escapeXml(boldPrefix)}</w:t>
-        </w:r>` : ''}
-        <w:r>
-          <w:rPr>
-            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
-            <w:sz w:val="24"/>
-            <w:szCs w:val="24"/>
-          </w:rPr>
-          <w:t xml:space="preserve">${escapeXml(text)}</w:t>
-        </w:r>
+        <w:pPr><w:spacing w:before="60" w:after="80" w:line="276" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr>
+        ${boldPrefix ? `<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${escapeXml(boldPrefix)}</w:t></w:r>` : ''}
+        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>
       </w:p>`;
   }
 
   async function generateOfficialDocx(verbatimOnly = false) {
     const zip = new JSZip();
-
     const emblemCanvas = document.createElement('canvas');
     emblemCanvas.width = 320;
     emblemCanvas.height = 320;
     drawNuprcEmblem(emblemCanvas);
-    const emblemDataUrl = emblemCanvas.toDataURL('image/png');
-    const emblemBase64 = emblemDataUrl.split(',')[1];
-    zip.file('word/media/emblem.png', emblemBase64, { base64: true });
+    zip.file('word/media/emblem.png', emblemCanvas.toDataURL('image/png').split(',')[1], { base64: true });
 
-    const cxEmu = 914400;
-    const cyEmu = 914400;
-
+    const cxEmu = 914400, cyEmu = 914400;
     const headerBannerXml = `
       <w:p>
         <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="60"/></w:pPr>
         <w:r>
           <w:drawing>
-            <wp:inline distT="0" distB="0" distL="0" distR="0"
-              xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+            <wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
               <wp:extent cx="${cxEmu}" cy="${cyEmu}"/>
               <wp:docPr id="1" name="NUPRC Emblem"/>
               <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
                 <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
                   <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                    <pic:nvPicPr>
-                      <pic:cNvPr id="1" name="emblem.png"/>
-                      <pic:cNvPicPr/>
-                    </pic:nvPicPr>
+                    <pic:nvPicPr><pic:cNvPr id="1" name="emblem.png"/><pic:cNvPicPr/></pic:nvPicPr>
                     <pic:blipFill>
                       <a:blip r:embed="rIdEmblem" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
                       <a:stretch><a:fillRect/></a:stretch>
@@ -1127,32 +1240,18 @@
       </w:p>
       <w:p>
         <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="40"/></w:pPr>
-        <w:r>
-          <w:rPr>
-            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>
-            <w:b/><w:color w:val="064E3B"/><w:sz w:val="28"/><w:szCs w:val="28"/>
-          </w:rPr>
-          <w:t>NIGERIAN UPSTREAM PETROLEUM REGULATORY COMMISSION (NUPRC)</w:t>
-        </w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:color w:val="064E3B"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr>
+        <w:t>NIGERIAN UPSTREAM PETROLEUM REGULATORY COMMISSION (NUPRC)</w:t></w:r>
       </w:p>
       <w:p>
         <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="160"/></w:pPr>
-        <w:r>
-          <w:rPr>
-            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>
-            <w:b/><w:sz w:val="24"/><w:szCs w:val="24"/>
-          </w:rPr>
-          <w:t>${escapeXml(document.getElementById('metaTitle').value.toUpperCase())}</w:t>
-        </w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+        <w:t>${escapeXml(document.getElementById('metaTitle').value.toUpperCase())}</w:t></w:r>
       </w:p>`;
 
     let mainBodyXml = '';
-
     if (verbatimOnly) {
-      mainBodyXml = `
-        ${buildHeadingParaXml('VERBATIM MEETING TRANSCRIPT')}
-        ${buildBodyParaXml(verbatimText.value || 'No transcript recorded.')}
-      `;
+      mainBodyXml = `${buildHeadingParaXml('VERBATIM MEETING TRANSCRIPT')}${buildBodyParaXml(verbatimText.value || 'No transcript recorded.')}`;
     } else {
       const metaRows = [
         ['Department / Division:', document.getElementById('metaDept').value],
@@ -1160,64 +1259,22 @@
         ['Time & Venue:', document.getElementById('metaVenue').value],
         ['Chairperson:', document.getElementById('metaChair').value],
         ['Secretary / Rapporteur:', document.getElementById('metaSec').value]
-      ].map(([k, v]) => `
-        <w:tr>
-          ${buildCellXml(k, 2600, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
-          ${buildCellXml(v, 7900, { bold: false })}
-        </w:tr>`).join('');
+      ].map(([k, v]) => `<w:tr>${buildCellXml(k, 2600, { bold: true, fill: 'F3F4F6', color: '064E3B' })}${buildCellXml(v, 7900)}</w:tr>`).join('');
       const metaTable = buildFixedTableXml([2600, 7900], metaRows);
 
-      const attHeader = `
-        <w:tr>
-          ${buildCellXml('S/N', 800, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}
-          ${buildCellXml('NAME', 3700, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
-          ${buildCellXml('DESIGNATION / UNIT', 4200, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
-          ${buildCellXml('STATUS', 1800, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}
-        </w:tr>`;
-      const attRows = state.attendance.map((a, idx) => `
-        <w:tr>
-          ${buildCellXml(String(idx + 1), 800, { align: 'center' })}
-          ${buildCellXml(a.name, 3700, { bold: true })}
-          ${buildCellXml(a.role, 4200)}
-          ${buildCellXml(a.status, 1800, { align: 'center' })}
-        </w:tr>`).join('');
+      const attHeader = `<w:tr>${buildCellXml('S/N', 800, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}${buildCellXml('NAME', 3700, { bold: true, fill: '064E3B', color: 'FFFFFF' })}${buildCellXml('DESIGNATION / UNIT', 4200, { bold: true, fill: '064E3B', color: 'FFFFFF' })}${buildCellXml('STATUS', 1800, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}</w:tr>`;
+      const attRows = state.attendance.map((a, idx) => `<w:tr>${buildCellXml(String(idx + 1), 800, { align: 'center' })}${buildCellXml(a.name, 3700, { bold: true })}${buildCellXml(a.role, 4200)}${buildCellXml(a.status, 1800, { align: 'center' })}</w:tr>`).join('');
       const attTable = buildFixedTableXml([800, 3700, 4200, 1800], attHeader + attRows);
 
-      const agendaXml = state.agenda.map((ag) => `
-        ${buildHeadingParaXml(ag.title)}
-        ${buildBodyParaXml(ag.discussion, 'Deliberation: ')}
-        ${buildBodyParaXml(ag.resolution, 'Resolution: ')}
-      `).join('');
+      const agendaXml = state.agenda.map((ag) => `${buildHeadingParaXml(ag.title)}${buildBodyParaXml(ag.discussion, 'Deliberation: ')}${buildBodyParaXml(ag.resolution, 'Resolution: ')}`).join('');
 
-      const actHeader = `
-        <w:tr>
-          ${buildCellXml('S/N', 700, { bold: true, fill: 'D1FAE5', color: '064E3B', align: 'center' })}
-          ${buildCellXml('ACTION ITEM', 5000, { bold: true, fill: 'D1FAE5', color: '064E3B' })}
-          ${buildCellXml('RESPONSIBLE PARTY', 2400, { bold: true, fill: 'D1FAE5', color: '064E3B' })}
-          ${buildCellXml('TIMELINE / STATUS', 2400, { bold: true, fill: 'D1FAE5', color: '064E3B' })}
-        </w:tr>`;
-      const actRows = state.actions.map((act, idx) => `
-        <w:tr>
-          ${buildCellXml(String(idx + 1), 700, { align: 'center' })}
-          ${buildCellXml(act.item, 5000)}
-          ${buildCellXml(act.owner, 2400, { bold: true })}
-          ${buildCellXml(`${act.deadline} (${act.status})`, 2400)}
-        </w:tr>`).join('');
+      const actHeader = `<w:tr>${buildCellXml('S/N', 700, { bold: true, fill: 'D1FAE5', color: '064E3B', align: 'center' })}${buildCellXml('ACTION ITEM', 5000, { bold: true, fill: 'D1FAE5', color: '064E3B' })}${buildCellXml('RESPONSIBLE PARTY', 2400, { bold: true, fill: 'D1FAE5', color: '064E3B' })}${buildCellXml('TIMELINE / STATUS', 2400, { bold: true, fill: 'D1FAE5', color: '064E3B' })}</w:tr>`;
+      const actRows = state.actions.map((act, idx) => `<w:tr>${buildCellXml(String(idx + 1), 700, { align: 'center' })}${buildCellXml(act.item, 5000)}${buildCellXml(act.owner, 2400, { bold: true })}${buildCellXml(`${act.deadline} (${act.status})`, 2400)}</w:tr>`).join('');
       const actTable = buildFixedTableXml([700, 5000, 2400, 2400], actHeader + actRows);
 
       const signRows = `
-        <w:tr>
-          ${buildCellXml('PREPARED BY', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
-          ${buildCellXml('SIGNATURE & DATE', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
-          ${buildCellXml('APPROVED BY', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
-          ${buildCellXml('SIGNATURE & DATE', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}
-        </w:tr>
-        <w:tr>
-          ${buildCellXml(document.getElementById('signPrep').value, 2625, { bold: true })}
-          ${buildCellXml('\n_______________________\nDate: _________________', 2625)}
-          ${buildCellXml(document.getElementById('signAppr').value, 2625, { bold: true })}
-          ${buildCellXml('\n_______________________\nDate: _________________', 2625)}
-        </w:tr>`;
+        <w:tr>${buildCellXml('PREPARED BY', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}${buildCellXml('SIGNATURE & DATE', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}${buildCellXml('APPROVED BY', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}${buildCellXml('SIGNATURE & DATE', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}</w:tr>
+        <w:tr>${buildCellXml(document.getElementById('signPrep').value, 2625, { bold: true })}${buildCellXml('\n_______________________\nDate: _________________', 2625)}${buildCellXml(document.getElementById('signAppr').value, 2625, { bold: true })}${buildCellXml('\n_______________________\nDate: _________________', 2625)}</w:tr>`;
       const signTable = buildFixedTableXml([2625, 2625, 2625, 2625], signRows);
 
       mainBodyXml = `
@@ -1238,51 +1295,22 @@
     }
 
     const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-                  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-        <w:body>
-          ${headerBannerXml}
-          ${mainBodyXml}
-          <w:sectPr>
-            <w:pgSz w:w="11906" w:h="16838"/>
-            <w:pgMar w:top="720" w:right="703" w:bottom="720" w:left="703" w:header="450" w:footer="450" w:gutter="0"/>
-          </w:sectPr>
+      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+        <w:body>${headerBannerXml}${mainBodyXml}
+          <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="720" w:right="703" w:bottom="720" w:left="703" w:header="450" w:footer="450" w:gutter="0"/></w:sectPr>
         </w:body>
       </w:document>`;
 
-    zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-        <Default Extension="xml" ContentType="application/xml"/>
-        <Default Extension="png" ContentType="image/png"/>
-        <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-      </Types>`);
-
-    zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-      </Relationships>`);
-
-    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-        <Relationship Id="rIdEmblem" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/emblem.png"/>
-      </Relationships>`);
-
+    zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+    zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdEmblem" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/emblem.png"/></Relationships>`);
     zip.file('word/document.xml', documentXml);
 
-    const blob = await zip.generateAsync({
-      type: 'blob',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    });
-
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
     const dateTag = document.getElementById('metaDate').value || new Date().toISOString().slice(0, 10);
-    const filename = verbatimOnly
-      ? `NUPRC_Verbatim_Transcript_${dateTag}.docx`
-      : `NUPRC_Official_Minutes_${dateTag}.docx`;
-
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = filename;
+    a.download = verbatimOnly ? `NUPRC_Verbatim_Transcript_${dateTag}.docx` : `NUPRC_Official_Minutes_${dateTag}.docx`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -1298,15 +1326,12 @@
     URL.revokeObjectURL(a.href);
   });
 
-  const DB_NAME = 'nuprc_minute_db';
-  const STORE_NAME = 'sessions';
-
+  // --- 11. OFFLINE INDEXEDDB HISTORY ---
+  const DB_NAME = 'nuprc_minute_db', STORE_NAME = 'sessions';
   function openDb() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = () => {
-        req.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      };
+      req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
@@ -1352,10 +1377,7 @@
       const div = document.createElement('div');
       div.className = 'queue-item';
       div.innerHTML = `
-        <div>
-          <strong>${escapeHtml(rec.title)}</strong>
-          <div style="font-size:0.78rem;color:var(--muted);">Date: ${rec.date || 'N/A'} • Saved: ${rec.savedAt}</div>
-        </div>
+        <div><strong>${escapeHtml(rec.title)}</strong><div style="font-size:0.78rem;color:var(--muted);">Date: ${rec.date || 'N/A'} • Saved: ${rec.savedAt}</div></div>
         <div class="btn-row" style="margin-top:0;">
           <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;" data-load>Load</button>
           <button class="btn btn-danger" style="padding:4px 10px;font-size:0.8rem;" data-del>Delete</button>
@@ -1389,7 +1411,6 @@
   }
 
   document.getElementById('saveHistoryBtn').addEventListener('click', saveSession);
-
   document.getElementById('metaDate').value = new Date().toISOString().slice(0, 10);
   renderDraftTables();
   renderHistory();

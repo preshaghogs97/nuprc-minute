@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nuprc-minute-offline-v1';
+const CACHE_NAME = 'nuprc-minute-hybrid-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -40,9 +40,7 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+      if (cachedResponse) return cachedResponse;
       return fetch(event.request)
         .then((networkResponse) => {
           if (
@@ -50,16 +48,12 @@ self.addEventListener('fetch', (event) => {
             (networkResponse.status === 200 || networkResponse.type === 'opaque')
           ) {
             const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
           }
           return networkResponse;
         })
         .catch(() => {
-          if (event.request.mode === 'navigate') {
-            return caches.match('./index.html');
-          }
+          if (event.request.mode === 'navigate') return caches.match('./index.html');
         });
     })
   );
