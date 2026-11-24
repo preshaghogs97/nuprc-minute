@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#064E3B" />
-  <title>NUPRC Minute — Hybrid Offline/Online PWA (v3)</title>
+  <title>NUPRC Minute — Hybrid PWA (v4)</title>
   <link rel="manifest" href="./manifest.json" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
@@ -79,7 +79,7 @@
       border-bottom-color: var(--green-dark);
     }
 
-    main { max-width: 1040px; margin: 16px auto; padding: 0 12px 48px; }
+    main { max-width: 1060px; margin: 16px auto; padding: 0 12px 48px; }
     .panel { display: none; }
     .panel.active { display: block; }
 
@@ -200,13 +200,13 @@
   <div class="brand">
     <canvas id="headerEmblem" width="320" height="320"></canvas>
     <div>
-      <h1>NUPRC Minute <span style="font-size:0.72rem;background:#047857;padding:2px 6px;border-radius:4px;">v3</span></h1>
-      <small>Auto-Chunked Online Whisper API + Offline Web Worker PWA</small>
+      <h1>NUPRC Minute <span style="font-size:0.72rem;background:#047857;padding:2px 6px;border-radius:4px;">v4</span></h1>
+      <small>Chunked Online Whisper API + Offline Web Worker • Official MOM Table Export</small>
     </div>
   </div>
   <div class="status-bar">
     <span id="netBadge" class="badge ok">Online</span>
-    <span id="engineBadge" class="badge ok">Engine: Auto</span>
+    <span id="engineBadge" class="badge ok">Engine: Online API</span>
     <button id="installBtn" class="btn btn-gold" style="display:none;">Install App</button>
   </div>
 </header>
@@ -215,7 +215,7 @@
   <button class="active" data-tab="tab-audio">1. Audio &amp; Transcribe</button>
   <button data-tab="tab-transcript">2. Verbatim Transcript</button>
   <button data-tab="tab-draft">3. Draft Minutes Editor</button>
-  <button data-tab="tab-actions">4. Action Items</button>
+  <button data-tab="tab-actions">4. Action Items &amp; Resolutions</button>
   <button data-tab="tab-history">5. Offline History</button>
 </nav>
 
@@ -223,24 +223,24 @@
   <!-- TAB 1: AUDIO & TRANSCRIBE -->
   <section id="tab-audio" class="panel active">
     <div class="card">
-      <h2>Step 1A: Hybrid Speech-to-Text Engine Configuration</h2>
+      <h2>Step 1A: Speech-to-Text Engine Configuration</h2>
       <div class="grid-3">
         <div>
           <label>Transcription Mode</label>
           <select id="engineMode">
-            <option value="auto">Auto (Online API if Key &amp; Internet, else Offline Worker)</option>
-            <option value="online">Online Cloud Whisper API Only (Auto-Chunked &le; 18 MB)</option>
+            <option value="online">Online Cloud Whisper API (Recommended • 12 MB Auto-Chunks)</option>
             <option value="offline">Offline Web Worker Only (Zero Internet / Airplane Mode)</option>
+            <option value="auto">Auto (Online API if Key &amp; Internet, else Offline Worker)</option>
           </select>
         </div>
         <div>
           <label>Groq / OpenAI-Compatible API Key (Saved Locally)</label>
-          <input type="password" id="apiKeyInput" placeholder="gsk_... (Free key from console.groq.com)" />
+          <input type="password" id="apiKeyInput" placeholder="gsk_... (console.groq.com/keys)" />
         </div>
         <div>
           <label>API Endpoint &amp; Model</label>
           <select id="apiProviderSelect">
-            <option value="groq">Groq Whisper (whisper-large-v3-turbo • Free Tier)</option>
+            <option value="groq">Groq Whisper (whisper-large-v3-turbo)</option>
             <option value="openai">OpenAI Whisper (whisper-1)</option>
           </select>
         </div>
@@ -248,9 +248,9 @@
 
       <div class="btn-row">
         <button id="saveApiBtn" class="btn btn-secondary">Save API Key Locally</button>
-        <button id="preloadWorkerBtn" class="btn btn-primary">Cache Offline Worker Model (~40 MB)</button>
+        <button id="preloadWorkerBtn" class="btn btn-primary">Cache Offline Worker (~40 MB)</button>
         <button id="forceResetCacheBtn" class="btn btn-secondary">Force Refresh App Cache</button>
-        <span id="workerStatusText" style="font-size:0.84rem;color:var(--muted);">Offline worker ready on demand.</span>
+        <span id="workerStatusText" style="font-size:0.84rem;color:var(--muted);">Ready.</span>
       </div>
       <div class="progress-wrap"><div id="modelProgress" class="progress-bar"></div></div>
     </div>
@@ -261,7 +261,7 @@
         <div>
           <label>Select Meeting Recordings (.mp3, .m4a, .wav, .ogg, .aac)</label>
           <input type="file" id="audioFilesInput" accept=".mp3,.m4a,.wav,.ogg,.aac,audio/*" multiple />
-          <small style="color:var(--muted);display:block;margin-top:4px;">Files &gt; 18 MB are automatically split into safe chunks for Online API so HTTP 413 never occurs.</small>
+          <small style="color:var(--muted);display:block;margin-top:4px;">Files &gt; 12 MB upload in sequential chunks with UI yields so HTTP 413 and browser freezes are avoided.</small>
         </div>
         <div>
           <label>Live Microphone Recorder (Local Capture)</label>
@@ -289,24 +289,21 @@
   <section id="tab-transcript" class="panel">
     <div class="card">
       <h2>Raw Verbatim Transcript Editor</h2>
-      <textarea id="verbatimText" rows="16" placeholder="Transcribed audio will appear here. You can also paste or edit raw meeting text directly..."></textarea>
+      <textarea id="verbatimText" rows="16" placeholder="Transcribed audio will appear here..."></textarea>
       <div class="stats-strip">
         <span id="wordCount">Words: 0</span>
         <span id="charCount">Characters: 0</span>
       </div>
       <div class="btn-row">
-        <button id="extractMinutesBtn" class="btn btn-primary">Auto-Extract NUPRC Minutes</button>
+        <button id="extractMinutesBtn" class="btn btn-primary">Auto-Extract NUPRC MOM Table</button>
         <button id="exportTxtBtn" class="btn btn-secondary">Export Verbatim (.txt)</button>
         <button id="exportVerbatimDocxBtn" class="btn btn-secondary">Export Verbatim (.docx)</button>
       </div>
     </div>
 
     <div class="card">
-      <h2>Optional Local LLM / WebLLM JSON Import</h2>
-      <p style="font-size:0.84rem;color:var(--muted);margin-top:0;">
-        Paste structured JSON (<code>{"safetyBrief":"...","agenda":[...],"actions":[...],"closing":"..."}</code>) below to populate the Draft Editor directly.
-      </p>
-      <textarea id="llmJsonInput" rows="4" placeholder='{"safetyBrief":"Fire exits reviewed.","agenda":[{"title":"1.0 Opening","discussion":"...","resolution":"..."}],"actions":[{"item":"Submit report","owner":"Engr. A","deadline":"2026-12-01"}],"closing":"Meeting adjourned at 14:00 hrs."}'></textarea>
+      <h2>Optional Local LLM / JSON Import</h2>
+      <textarea id="llmJsonInput" rows="3" placeholder='{"safetyBrief":"...","agenda":[{"sn":"1","topic":"OPENING REMARKS","discussion":"...","actions":"...","party":"ALL"}],"resolutions":[{"topic":"RESOLUTIONS","discussion":"...","party":"CONOG"}],"closing":"..."}'></textarea>
       <div class="btn-row">
         <button id="applyJsonBtn" class="btn btn-secondary">Apply JSON to Draft</button>
       </div>
@@ -316,40 +313,36 @@
   <!-- TAB 3: DRAFT MINUTES EDITOR -->
   <section id="tab-draft" class="panel">
     <div class="card">
-      <h2>Header Metadata (Official NUPRC Format)</h2>
+      <h2>Meeting Header Metadata (Sample MOM Layout)</h2>
       <div class="grid-2">
         <div>
           <label>Meeting Title</label>
-          <input type="text" id="metaTitle" value="TECHNICAL &amp; OPERATIONS COORDINATION MEETING" />
+          <input type="text" id="metaTitle" value="MINUTES OF MEETING BETWEEN NUPRC-CONOG - OML 59 OIL SPILL INCIDENT" />
         </div>
         <div>
-          <label>Department / Division</label>
-          <input type="text" id="metaDept" value="Engineering &amp; Technical Standards Division" />
+          <label>Doc. Title</label>
+          <input type="text" id="metaDocTitle" value="MINUTES OF MEETING" />
         </div>
         <div>
           <label>Date</label>
-          <input type="date" id="metaDate" />
+          <input type="text" id="metaDate" value="3 November 2026" />
         </div>
         <div>
-          <label>Time &amp; Venue</label>
-          <input type="text" id="metaVenue" value="10:00 AM • NUPRC Conference Room" />
+          <label>Time</label>
+          <input type="text" id="metaTime" value="10am – 12am" />
         </div>
-        <div>
-          <label>Chairperson</label>
-          <input type="text" id="metaChair" value="Head, Operations" />
-        </div>
-        <div>
-          <label>Secretary / Rapporteur</label>
-          <input type="text" id="metaSec" value="Precious Aghogho" />
+        <div style="grid-column: 1 / -1;">
+          <label>Venue</label>
+          <input type="text" id="metaVenue" value="NUPRC/ADRC Yenagoa Field Office, 6 Lambert Eradiri Street, Behind Onopa Roundabout, Yenagoa, Bayelsa State." />
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h2>Attendance Register</h2>
+      <h2>Attendance Table (S/N | NAME | COMPANY | EMAIL | MODE)</h2>
       <table class="data-table" id="attendanceTable">
         <thead>
-          <tr><th>S/N</th><th>Name</th><th>Designation / Unit</th><th>Status</th><th></th></tr>
+          <tr><th>S/N</th><th>NAME</th><th>COMPANY</th><th>EMAIL</th><th>MODE</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -359,30 +352,32 @@
     </div>
 
     <div class="card">
-      <h2>Safety Brief (Unnumbered Opening Section)</h2>
-      <textarea id="safetyBriefInput" rows="3">Participants were reminded of emergency muster points, ergonomic posture, and strict adherence to NUPRC HSE protocols.</textarea>
-    </div>
+      <h2>Safety Brief &amp; Deliberation Rows (S/N | DISCUSSION | IDENTIFIED ACTIONS | ACTION PARTY/TIMELINE)</h2>
+      <label>SAFETY BRIEF</label>
+      <textarea id="safetyBriefInput" rows="2">This was presented by Engr. Iheanacho Ukonne, Head, Operations.</textarea>
 
-    <div class="card">
-      <h2>Discussions &amp; Resolutions</h2>
-      <div id="agendaContainer"></div>
+      <div id="agendaContainer" style="margin-top:12px;"></div>
       <div class="btn-row">
-        <button id="addAgendaBtn" class="btn btn-secondary">+ Add Agenda Item</button>
+        <button id="addAgendaBtn" class="btn btn-secondary">+ Add Deliberation / Sub-Topic Row</button>
       </div>
     </div>
 
     <div class="card">
-      <h2>Closing Remarks &amp; 4-Column Sign-Off</h2>
+      <h2>Closing Remarks &amp; 3-Party Sign-Off (NUPRC | CONOG | HOST COMMUNITY)</h2>
       <label>Closing Remarks</label>
-      <textarea id="closingInput" rows="2">There being no other business, the meeting was adjourned following a closing prayer.</textarea>
-      <div class="grid-2" style="margin-top:10px;">
+      <textarea id="closingInput" rows="3">The Coordinator, NUPRC Yenagoa, thanked everyone present and implored CONOG and the Host Community to maintain harmony and live in peaceful co-existence.</textarea>
+      <div class="grid-3" style="margin-top:10px;">
         <div>
-          <label>Prepared By (Name &amp; Title)</label>
-          <input type="text" id="signPrep" value="Precious Aghogho — Electrical Engineering" />
+          <label>Left Sign-Off Column</label>
+          <input type="text" id="signParty1" value="NUPRC" />
         </div>
         <div>
-          <label>Approved By (Name &amp; Title)</label>
-          <input type="text" id="signAppr" value="Chairperson / Head of Division" />
+          <label>Center Sign-Off Column</label>
+          <input type="text" id="signParty2" value="CONOG" />
+        </div>
+        <div>
+          <label>Right Sign-Off Column</label>
+          <input type="text" id="signParty3" value="HOST COMMUNITY (KOLUAMA HCDT)" />
         </div>
       </div>
     </div>
@@ -390,29 +385,29 @@
     <div class="card" style="background:#ECFDF5;border-color:#059669;">
       <div class="btn-row" style="margin-top:0;justify-content:space-between;">
         <div>
-          <strong style="color:var(--green-dark);">Official A4 NUPRC Word Export (.docx)</strong>
-          <div style="font-size:0.82rem;color:var(--muted);">11906×16838 DXA • Times New Roman • 10,500 DXA Fixed Tables • Embedded 320×320 Seal</div>
+          <strong style="color:var(--green-dark);">Official A4 NUPRC MOM Table Export (.docx)</strong>
+          <div style="font-size:0.82rem;color:var(--muted);">11906×16838 DXA • Times New Roman • 10,500 DXA Fixed Tables • Sample MOM Structure</div>
         </div>
         <div class="btn-row" style="margin-top:0;">
           <button id="saveHistoryBtn" class="btn btn-secondary">Save to Offline History</button>
-          <button id="generateDocxBtn" class="btn btn-primary">Download Official .docx</button>
+          <button id="generateDocxBtn" class="btn btn-primary">Download Official MOM .docx</button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- TAB 4: ACTION ITEMS -->
+  <!-- TAB 4: ACTIONABLE ITEMS & RESOLUTIONS -->
   <section id="tab-actions" class="panel">
     <div class="card">
-      <h2>Actionable Items Tracker</h2>
+      <h2>Actionable Items &amp; Resolutions Table</h2>
       <table class="data-table" id="actionsTable">
         <thead>
-          <tr><th>S/N</th><th>Action Description</th><th>Responsible Party</th><th>Timeline / Due</th><th>Status</th><th></th></tr>
+          <tr><th>Row Label</th><th>Details / Resolution</th><th>Action Party / Timeline</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
       <div class="btn-row">
-        <button id="addActionBtn" class="btn btn-primary">+ Add Action Item</button>
+        <button id="addActionBtn" class="btn btn-primary">+ Add Action / Resolution Row</button>
       </div>
     </div>
   </section>
@@ -427,11 +422,8 @@
 </main>
 
 <script type="module">
-  // --- 1. SERVICE WORKER & PWA INSTALL ---
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').then((reg) => {
-      reg.update().catch(() => {});
-    }).catch(console.warn);
+    navigator.serviceWorker.register('./sw.js').then((reg) => reg.update().catch(() => {})).catch(console.warn);
   }
 
   document.getElementById('forceResetCacheBtn').addEventListener('click', async () => {
@@ -461,7 +453,6 @@
     installBtn.style.display = 'none';
   });
 
-  // --- 2. HYBRID ENGINE SETTINGS (LOCALSTORAGE) ---
   const engineModeEl = document.getElementById('engineMode');
   const apiKeyEl = document.getElementById('apiKeyInput');
   const apiProviderEl = document.getElementById('apiProviderSelect');
@@ -470,32 +461,21 @@
 
   apiKeyEl.value = localStorage.getItem('nuprc_whisper_api_key') || '';
   apiProviderEl.value = localStorage.getItem('nuprc_whisper_provider') || 'groq';
-  engineModeEl.value = localStorage.getItem('nuprc_whisper_mode') || 'auto';
+  engineModeEl.value = localStorage.getItem('nuprc_whisper_mode') || 'online';
 
   function resolveActiveEngine() {
     const mode = engineModeEl.value;
-    const hasKey = apiKeyEl.value.trim().length > 5;
     if (mode === 'online') return 'online';
     if (mode === 'offline') return 'offline';
-    return (navigator.onLine && hasKey) ? 'online' : 'offline';
+    return (navigator.onLine && apiKeyEl.value.trim().length > 5) ? 'online' : 'offline';
   }
 
   function updateStatusBadges() {
-    if (navigator.onLine) {
-      netBadge.textContent = 'Online';
-      netBadge.className = 'badge ok';
-    } else {
-      netBadge.textContent = 'Offline / Airplane Mode';
-      netBadge.className = 'badge warn';
-    }
+    netBadge.textContent = navigator.onLine ? 'Online' : 'Offline / Airplane Mode';
+    netBadge.className = navigator.onLine ? 'badge ok' : 'badge warn';
     const active = resolveActiveEngine();
-    if (active === 'online') {
-      engineBadge.textContent = 'Active Engine: Online Cloud Whisper';
-      engineBadge.className = 'badge ok';
-    } else {
-      engineBadge.textContent = 'Active Engine: Offline Web Worker';
-      engineBadge.className = 'badge warn';
-    }
+    engineBadge.textContent = active === 'online' ? 'Engine: Online API' : 'Engine: Offline Worker';
+    engineBadge.className = active === 'online' ? 'badge ok' : 'badge warn';
   }
 
   document.getElementById('saveApiBtn').addEventListener('click', () => {
@@ -503,7 +483,7 @@
     localStorage.setItem('nuprc_whisper_provider', apiProviderEl.value);
     localStorage.setItem('nuprc_whisper_mode', engineModeEl.value);
     updateStatusBadges();
-    alert('API key & engine preference saved locally in your browser.');
+    alert('API key & mode saved locally.');
   });
   engineModeEl.addEventListener('change', () => {
     localStorage.setItem('nuprc_whisper_mode', engineModeEl.value);
@@ -514,14 +494,14 @@
   window.addEventListener('offline', updateStatusBadges);
   updateStatusBadges();
 
-  // --- 3. DEDICATED OFFLINE WEB WORKER (NON-BLOCKING WHISPER-TINY.EN) ---
+  const yieldToUi = (ms = 50) => new Promise((r) => setTimeout(r, ms));
+
+  // Offline Web Worker
   const workerCode = `
     import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-
     let asr = null;
-
     async function getPipeline() {
       if (asr) return asr;
       asr = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
@@ -534,7 +514,6 @@
       });
       return asr;
     }
-
     self.onmessage = async (e) => {
       const { type, id, pcm16k } = e.data;
       try {
@@ -568,7 +547,7 @@
           workerStatusText.textContent = `Caching offline ${msg.file}: ${msg.progress}%`;
         } else if (msg.type === 'ready') {
           modelProgress.style.width = '100%';
-          workerStatusText.textContent = 'Offline Worker cached & ready (whisper-tiny.en).';
+          workerStatusText.textContent = 'Offline Worker ready.';
         }
       };
     }
@@ -576,18 +555,13 @@
   }
 
   document.getElementById('preloadWorkerBtn').addEventListener('click', () => {
-    const w = getOfflineWorker();
-    workerStatusText.textContent = 'Downloading lightweight offline model in background worker...';
-    w.postMessage({ type: 'preload' });
+    getOfflineWorker().postMessage({ type: 'preload' });
   });
 
-  // Safe 16 kHz Mono Resampler with 45 MB RAM guard + 15s timeout so browser tabs never become unresponsive
   async function decodeAndResampleWithTimeout(fileOrBlob, timeoutMs = 15000) {
-    const maxOfflineBytes = 45 * 1024 * 1024;
-    if (fileOrBlob.size > maxOfflineBytes) {
-      throw new Error(`File is ${(fileOrBlob.size / (1024 * 1024)).toFixed(1)} MB, which exceeds the 45 MB browser RAM limit for offline WASM decoding. Switch to Online Cloud Whisper API mode (which auto-chunks large files) or split the recording.`);
+    if (fileOrBlob.size > 35 * 1024 * 1024) {
+      throw new Error('File exceeds 35 MB safe offline browser memory limit. Use Online Cloud Whisper API mode.');
     }
-
     const decodeTask = (async () => {
       const arrayBuffer = await fileOrBlob.arrayBuffer();
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -599,8 +573,7 @@
         await tempCtx.close();
       }
       const targetRate = 16000;
-      const frameCount = Math.ceil(audioBuffer.duration * targetRate);
-      const offlineCtx = new OfflineAudioContext(1, frameCount, targetRate);
+      const offlineCtx = new OfflineAudioContext(1, Math.ceil(audioBuffer.duration * targetRate), targetRate);
       const source = offlineCtx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(offlineCtx.destination);
@@ -608,9 +581,8 @@
       const rendered = await offlineCtx.startRendering();
       return rendered.getChannelData(0);
     })();
-
     const timeoutTask = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Browser audio decoder timed out (15s). Switch to Online Cloud Whisper API mode or convert .m4a to .mp3/.wav.')), timeoutMs)
+      setTimeout(() => reject(new Error('Offline audio decoder timed out (15s).')), timeoutMs)
     );
     return Promise.race([decodeTask, timeoutTask]);
   }
@@ -622,22 +594,16 @@
       const handler = (e) => {
         const msg = e.data;
         if (msg.id && msg.id !== reqId) return;
-        if (msg.type === 'inferring') {
-          onInferring();
-        } else if (msg.type === 'result') {
-          w.removeEventListener('message', handler);
-          resolve(msg.text);
-        } else if (msg.type === 'error') {
-          w.removeEventListener('message', handler);
-          reject(new Error(msg.message));
-        }
+        if (msg.type === 'inferring') onInferring();
+        else if (msg.type === 'result') { w.removeEventListener('message', handler); resolve(msg.text); }
+        else if (msg.type === 'error') { w.removeEventListener('message', handler); reject(new Error(msg.message)); }
       };
       w.addEventListener('message', handler);
       w.postMessage({ type: 'transcribe', id: reqId, pcm16k }, [pcm16k.buffer]);
     });
   }
 
-  // --- 4. AUTO-CHUNKED ONLINE CLOUD WHISPER API (PREVENTS HTTP 413) ---
+  // Online Whisper API with 12 MB safe chunks & UI yields
   async function uploadSingleChunkToApi(blobSlice, filename, apiKey, url, model) {
     const formData = new FormData();
     formData.append('file', blobSlice, filename);
@@ -662,75 +628,66 @@
   async function transcribeViaOnlineApiChunked(fileOrBlob, filename, onProgress) {
     const apiKey = apiKeyEl.value.trim();
     if (!apiKey) {
-      throw new Error('No API key entered. Paste your Groq/OpenAI API key in Step 1A or switch to Offline Web Worker mode.');
+      throw new Error('Missing API key. Paste your Groq key (gsk_...) in Step 1A and click Save API Key Locally.');
     }
+    if (!navigator.onLine) {
+      throw new Error('No internet connection detected while in Online API mode.');
+    }
+
     const provider = apiProviderEl.value;
     const url = provider === 'groq'
       ? 'https://api.groq.com/openai/v1/audio/transcriptions'
       : 'https://api.openai.com/v1/audio/transcriptions';
     const model = provider === 'groq' ? 'whisper-large-v3-turbo' : 'whisper-1';
 
-    // Keep every upload strictly <= 18 MB (well below Groq/OpenAI 25 MB limit -> eliminates HTTP 413)
-    const MAX_CHUNK_BYTES = 18 * 1024 * 1024;
-    if (fileOrBlob.size <= MAX_CHUNK_BYTES) {
+    // 12 MB chunks stay safely below 25 MB limit even with multipart overhead
+    const CHUNK_BYTES = 12 * 1024 * 1024;
+    if (fileOrBlob.size <= CHUNK_BYTES) {
       if (onProgress) onProgress(1, 1);
-      return await uploadSingleChunkToApi(fileOrBlob, filename || 'meeting.m4a', apiKey, url, model);
+      return await uploadSingleChunkToApi(fileOrBlob, filename || 'meeting.mp3', apiKey, url, model);
     }
 
-    const totalChunks = Math.ceil(fileOrBlob.size / MAX_CHUNK_BYTES);
+    const totalChunks = Math.ceil(fileOrBlob.size / CHUNK_BYTES);
     const ext = (filename && filename.includes('.')) ? filename.split('.').pop() : 'mp3';
     const parts = [];
 
     for (let c = 0; c < totalChunks; c++) {
       if (onProgress) onProgress(c + 1, totalChunks);
-      const start = c * MAX_CHUNK_BYTES;
-      const end = Math.min(fileOrBlob.size, start + MAX_CHUNK_BYTES);
-      const slice = fileOrBlob.slice(start, end, fileOrBlob.type || 'audio/mpeg');
+      const start = c * CHUNK_BYTES;
+      const end = Math.min(fileOrBlob.size, start + CHUNK_BYTES);
+      const slice = fileOrBlob.slice(start, end);
       const partText = await uploadSingleChunkToApi(slice, `part_${c + 1}.${ext}`, apiKey, url, model);
       if (partText) parts.push(partText);
+      await yieldToUi(60);
     }
     return parts.join(' ');
   }
 
-  // --- 5. PROCEDURAL 320x320 NUPRC EMBLEM CANVAS ---
+  // NUPRC Emblem Canvas
   function drawNuprcEmblem(canvas) {
     const ctx = canvas.getContext('2d');
     const W = 320, H = 320, cx = 160, cy = 160;
     ctx.clearRect(0, 0, W, H);
 
-    ctx.beginPath();
-    ctx.arc(cx, cy, 156, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fill();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#064E3B';
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 156, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#064E3B'; ctx.stroke();
 
-    ctx.beginPath();
-    ctx.arc(cx, cy, 148, 0, Math.PI * 2);
-    ctx.fillStyle = '#064E3B';
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, 148, 0, Math.PI * 2);
+    ctx.fillStyle = '#064E3B'; ctx.fill();
 
-    ctx.beginPath();
-    ctx.arc(cx, cy, 108, 0, Math.PI * 2);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#FACC15';
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 108, 0, Math.PI * 2);
+    ctx.lineWidth = 3; ctx.strokeStyle = '#FACC15'; ctx.stroke();
 
     function drawCurvedText(text, radius, startAngle, endAngle, bottom = false) {
-      ctx.save();
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 13px Times New Roman, serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.save(); ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 13px Times New Roman, serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const step = (endAngle - startAngle) / Math.max(1, text.length - 1);
       for (let i = 0; i < text.length; i++) {
         const angle = startAngle + i * step;
         ctx.save();
         ctx.translate(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
         ctx.rotate(bottom ? angle - Math.PI / 2 : angle + Math.PI / 2);
-        ctx.fillText(text[i], 0, 0);
-        ctx.restore();
+        ctx.fillText(text[i], 0, 0); ctx.restore();
       }
       ctx.restore();
     }
@@ -740,72 +697,37 @@
     const teeth = 18, outerR = 102, innerR = 88;
     ctx.beginPath();
     for (let i = 0; i < teeth; i++) {
-      const a0 = (i / teeth) * Math.PI * 2;
-      const a1 = ((i + 0.25) / teeth) * Math.PI * 2;
-      const a2 = ((i + 0.55) / teeth) * Math.PI * 2;
-      const a3 = ((i + 0.80) / teeth) * Math.PI * 2;
+      const a0 = (i / teeth) * Math.PI * 2, a1 = ((i + 0.25) / teeth) * Math.PI * 2;
+      const a2 = ((i + 0.55) / teeth) * Math.PI * 2, a3 = ((i + 0.80) / teeth) * Math.PI * 2;
       if (i === 0) ctx.moveTo(cx + innerR * Math.cos(a0), cy + innerR * Math.sin(a0));
       ctx.lineTo(cx + outerR * Math.cos(a1), cy + outerR * Math.sin(a1));
       ctx.lineTo(cx + outerR * Math.cos(a2), cy + outerR * Math.sin(a2));
       ctx.lineTo(cx + innerR * Math.cos(a3), cy + innerR * Math.sin(a3));
     }
-    ctx.closePath();
-    ctx.fillStyle = '#FACC15';
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#B45309';
-    ctx.stroke();
+    ctx.closePath(); ctx.fillStyle = '#FACC15'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#B45309'; ctx.stroke();
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, 78, 0, Math.PI * 2);
-    ctx.clip();
-
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, 78, 0, Math.PI * 2); ctx.clip();
     const grad = ctx.createLinearGradient(0, cy - 78, 0, cy + 78);
-    grad.addColorStop(0, '#DC2626');
-    grad.addColorStop(0.55, '#F97316');
-    grad.addColorStop(1, '#FDE047');
-    ctx.fillStyle = grad;
-    ctx.fillRect(cx - 80, cy - 80, 160, 160);
+    grad.addColorStop(0, '#DC2626'); grad.addColorStop(0.55, '#F97316'); grad.addColorStop(1, '#FDE047');
+    ctx.fillStyle = grad; ctx.fillRect(cx - 80, cy - 80, 160, 160);
+    ctx.fillStyle = '#064E3B'; ctx.fillRect(cx - 80, cy + 36, 160, 46);
 
-    ctx.fillStyle = '#064E3B';
-    ctx.fillRect(cx - 80, cy + 36, 160, 46);
-
-    ctx.strokeStyle = '#111827';
-    ctx.fillStyle = '#111827';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(cx - 22, cy + 38);
-    ctx.lineTo(cx - 7, cy - 36);
-    ctx.lineTo(cx + 7, cy - 36);
-    ctx.lineTo(cx + 22, cy + 38);
-    ctx.stroke();
-
+    ctx.strokeStyle = '#111827'; ctx.fillStyle = '#111827'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx - 22, cy + 38); ctx.lineTo(cx - 7, cy - 36); ctx.lineTo(cx + 7, cy - 36); ctx.lineTo(cx + 22, cy + 38); ctx.stroke();
     ctx.lineWidth = 1.8;
     for (let y = -22; y <= 26; y += 14) {
       const span = 7 + ((y + 36) / 74) * 15;
-      ctx.beginPath();
-      ctx.moveTo(cx - span, cy + y);
-      ctx.lineTo(cx + span, cy + y);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - span, cy + y); ctx.lineTo(cx + span, cy + y); ctx.stroke();
     }
     ctx.fillRect(cx - 10, cy - 41, 20, 5);
-
     const hx = cx + 36, hy = cy - 26;
-    ctx.beginPath();
-    ctx.ellipse(hx, hy, 11, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(hx - 22, hy - 1.5, 13, 3);
-    ctx.fillRect(hx - 23, hy - 5, 2.5, 8);
-    ctx.fillRect(hx - 14, hy - 8, 28, 2);
-    ctx.fillRect(hx - 1, hy - 8, 2, 4);
-
+    ctx.beginPath(); ctx.ellipse(hx, hy, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(hx - 22, hy - 1.5, 13, 3); ctx.fillRect(hx - 23, hy - 5, 2.5, 8);
+    ctx.fillRect(hx - 14, hy - 8, 28, 2); ctx.fillRect(hx - 1, hy - 8, 2, 4);
     ctx.restore();
   }
-
   drawNuprcEmblem(document.getElementById('headerEmblem'));
 
-  // --- 6. TAB NAVIGATION ---
   document.querySelectorAll('nav.tabs button').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('nav.tabs button').forEach((b) => b.classList.remove('active'));
@@ -815,7 +737,7 @@
     });
   });
 
-  // --- 7. MULTI-FILE QUEUE, MIC RECORDER & HYBRID EXECUTION ---
+  // Queue & Recorder
   let audioQueue = [];
   const audioFilesInput = document.getElementById('audioFilesInput');
   const audioQueueList = document.getElementById('audioQueueList');
@@ -831,10 +753,9 @@
     audioQueue.forEach((item, idx) => {
       const div = document.createElement('div');
       div.className = 'queue-item';
-      const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const mb = (item.blob.size / (1024 * 1024)).toFixed(1);
       div.innerHTML = `
-        <span><strong>#${idx + 1}</strong> ${item.name} <small style="color:#6B7280;">(${mb} MB • ${timeStr})</small></span>
+        <span><strong>#${idx + 1}</strong> ${item.name} <small style="color:#6B7280;">(${mb} MB)</small></span>
         <span>
           <span class="badge ${item.status === 'Done' ? 'ok' : 'warn'}" style="margin-right:6px;">${item.status}</span>
           <button class="btn btn-secondary" style="padding:3px 8px;font-size:0.75rem;">Remove</button>
@@ -851,13 +772,7 @@
 
   audioFilesInput.addEventListener('change', (e) => {
     Array.from(e.target.files || []).forEach((f) => {
-      audioQueue.push({
-        id: crypto.randomUUID(),
-        name: f.name,
-        timestamp: f.lastModified || Date.now(),
-        blob: f,
-        status: 'Queued'
-      });
+      audioQueue.push({ id: crypto.randomUUID(), name: f.name, timestamp: f.lastModified || Date.now(), blob: f, status: 'Queued' });
     });
     audioFilesInput.value = '';
     updateQueueUI();
@@ -869,11 +784,7 @@
     updateQueueUI();
   });
 
-  // Live Mic Recorder
-  let mediaRecorder = null;
-  let recChunks = [];
-  let recInterval = null;
-  let recSeconds = 0;
+  let mediaRecorder = null, recChunks = [], recInterval = null, recSeconds = 0;
   const recStartBtn = document.getElementById('recStartBtn');
   const recStopBtn = document.getElementById('recStopBtn');
   const recTimer = document.getElementById('recTimer');
@@ -890,7 +801,7 @@
         const stamp = new Date();
         audioQueue.push({
           id: crypto.randomUUID(),
-          name: `Live_Recording_${stamp.toTimeString().slice(0,8).replace(/:/g,'-')}.webm`,
+          name: `Recording_${stamp.toTimeString().slice(0,8).replace(/:/g,'-')}.webm`,
           timestamp: stamp.getTime(),
           blob,
           status: 'Queued'
@@ -898,24 +809,21 @@
         updateQueueUI();
       };
       mediaRecorder.start();
-      recSeconds = 0;
-      recTimer.textContent = '00:00';
+      recSeconds = 0; recTimer.textContent = '00:00';
       recInterval = setInterval(() => {
         recSeconds++;
         recTimer.textContent = `${String(Math.floor(recSeconds / 60)).padStart(2, '0')}:${String(recSeconds % 60).padStart(2, '0')}`;
       }, 1000);
-      recStartBtn.disabled = true;
-      recStopBtn.disabled = false;
+      recStartBtn.disabled = true; recStopBtn.disabled = false;
     } catch (err) {
-      alert('Microphone access error: ' + err.message);
+      alert('Microphone error: ' + err.message);
     }
   });
 
   recStopBtn.addEventListener('click', () => {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     clearInterval(recInterval);
-    recStartBtn.disabled = false;
-    recStopBtn.disabled = true;
+    recStartBtn.disabled = false; recStopBtn.disabled = true;
   });
 
   transcribeAllBtn.addEventListener('click', async () => {
@@ -928,25 +836,24 @@
       let combined = verbatimText.value.trim();
 
       for (let i = 0; i < audioQueue.length; i++) {
+        await yieldToUi(30);
         const item = audioQueue[i];
         let text = '';
 
         if (engine === 'online') {
           text = await transcribeViaOnlineApiChunked(item.blob, item.name, (part, total) => {
-            item.status = total > 1 ? `Uploading Chunk ${part}/${total}...` : 'Uploading to Whisper API...';
+            item.status = total > 1 ? `Chunk ${part}/${total}...` : 'Uploading...';
             updateQueueUI();
-            transcribeStatus.textContent = `Cloud Whisper (${i + 1}/${audioQueue.length}): ${item.name} [Part ${part}/${total}]`;
+            transcribeStatus.textContent = `Online API (${i + 1}/${audioQueue.length}): ${item.name} [Chunk ${part}/${total}]`;
           });
         } else {
-          item.status = 'Decoding 16kHz (15s limit)...';
+          item.status = 'Decoding...';
           updateQueueUI();
           transcribeStatus.textContent = `Offline Worker (${i + 1}/${audioQueue.length}): Decoding ${item.name}...`;
           const pcm16k = await decodeAndResampleWithTimeout(item.blob, 15000);
-
           text = await transcribeViaOfflineWorker(pcm16k, () => {
-            item.status = 'Worker Transcribing...';
+            item.status = 'Transcribing...';
             updateQueueUI();
-            transcribeStatus.textContent = `Offline Worker (${i + 1}/${audioQueue.length}): Transcribing ${item.name}...`;
           });
         }
 
@@ -959,19 +866,18 @@
         updateQueueUI();
       }
 
-      transcribeStatus.textContent = 'Transcription complete! Opening Verbatim Transcript...';
+      transcribeStatus.textContent = 'Completed! Extracting NUPRC MOM table...';
       runDeterministicExtractor();
       document.querySelector('nav.tabs button[data-tab="tab-transcript"]').click();
     } catch (err) {
-      transcribeErrorBox.textContent = `Transcription Error (${engine.toUpperCase()} mode): ${err.message}`;
+      transcribeErrorBox.textContent = `Error (${engine.toUpperCase()}): ${err.message}`;
       transcribeErrorBox.style.display = 'block';
-      transcribeStatus.textContent = 'Stopped due to error above.';
+      transcribeStatus.textContent = 'Stopped with error.';
     } finally {
       transcribeAllBtn.disabled = false;
     }
   });
 
-  // --- 8. VERBATIM STATS & DETERMINISTIC NUPRC EXTRACTOR ---
   function updateTranscriptStats() {
     const val = verbatimText.value;
     const words = val.trim() ? val.trim().split(/\s+/).length : 0;
@@ -980,20 +886,31 @@
   }
   verbatimText.addEventListener('input', updateTranscriptStats);
 
+  // Sample-aligned MOM state
   let state = {
     attendance: [
-      { name: 'Engr. Chairman', role: 'Chairperson / Operations', status: 'Present' },
-      { name: 'Precious Aghogho', role: 'Electrical Engineering (Secretary)', status: 'Present' }
+      { sn: '1', name: 'Bighoro, S.E', company: 'NUPRC', email: 'Bighoro.s.e@nuprc.gov.ng', mode: 'PHYSICAL' },
+      { sn: '2', name: 'Aghogho Ufuoma Precious', company: 'NUPRC', email: 'Aghoghoprecious09@gmail.com', mode: 'PHYSICAL' }
     ],
     agenda: [
       {
-        title: '1.0 Opening & Review of Previous Minutes',
-        discussion: 'The Chairperson called the meeting to order and reviewed operational deliverables.',
-        resolution: 'Previous minutes were adopted as a true reflection of deliberations.'
+        sn: '1',
+        topic: 'OPENING REMARKS',
+        discussion: 'The NUPRC Coordinator welcomed all parties present and emphasized peaceful collaboration and timely resolution of community issues.',
+        actions: '',
+        party: ''
+      },
+      {
+        sn: '2',
+        topic: 'INCIDENT & PETITION REVIEW',
+        discussion: 'Stakeholders reviewed the incident report, operational findings, and community demands.',
+        actions: 'Conduct joint verification and submit report.',
+        party: 'OPERATOR / NUPRC'
       }
     ],
     actions: [
-      { item: 'Compile electrical inspection & compliance report', owner: 'Engineering Team', deadline: 'Next Sitting', status: 'Open' }
+      { label: 'ACTIONABLE ITEMS', details: 'Follow-up actions and deliverables agreed during the sitting.', party: 'ACTION PARTY/TIMELINE' },
+      { label: 'RESOLUTIONS', details: 'Parties agreed to reconvene and report progress on scheduled date.', party: 'ALL' }
     ]
   };
 
@@ -1009,41 +926,31 @@
 
     const safetyHits = sentences.filter((s) => /\b(safety|hse|hazard|muster|ppe|emergency|incident|health)\b/i.test(s));
     if (safetyHits.length > 0) {
-      document.getElementById('safetyBriefInput').value = safetyHits.slice(0, 3).join(' ');
+      document.getElementById('safetyBriefInput').value = safetyHits.slice(0, 2).join(' ');
     }
-
-    const extractedActions = [];
-    sentences.forEach((s) => {
-      if (/\b(action|must|shall|will ensure|assigned to|follow up|submit|prepare|deadline|by friday|by monday)\b/i.test(s)) {
-        const ownerMatch = s.match(/\b(Engr\.?\s+[A-Z][a-z]+|Mr\.?\s+[A-Z][a-z]+|Mrs\.?\s+[A-Z][a-z]+|[A-Z][a-z]+\s+Unit|[A-Z][a-z]+\s+Team)\b/);
-        const dateMatch = s.match(/\b(by\s+[A-Za-z0-9,\s]{3,20}|within\s+\d+\s+days)\b/i);
-        extractedActions.push({
-          item: s,
-          owner: ownerMatch ? ownerMatch[0] : 'Action Officer',
-          deadline: dateMatch ? dateMatch[0] : 'Immediate / Next Meeting',
-          status: 'Open'
-        });
-      }
-    });
-    if (extractedActions.length > 0) state.actions = extractedActions.slice(0, 12);
 
     const bodySentences = sentences.filter((s) => !safetyHits.includes(s));
     const chunkSize = Math.max(3, Math.ceil(bodySentences.length / 3));
     const newAgenda = [];
     for (let i = 0; i < bodySentences.length; i += chunkSize) {
       const slice = bodySentences.slice(i, i + chunkSize);
-      const resLine = slice.find((s) => /\b(resolved|agreed|approved|decided|concluded)\b/i.test(s)) ||
-        'Noted for operational implementation and tracking.';
       newAgenda.push({
-        title: `${newAgenda.length + 1}.0 Deliberation Item ${newAgenda.length + 1}`,
+        sn: String(newAgenda.length + 1),
+        topic: i === 0 ? 'OPENING REMARKS' : `AGENDA ITEM ${newAgenda.length + 1}`,
         discussion: slice.join(' '),
-        resolution: resLine
+        actions: '',
+        party: ''
       });
     }
     if (newAgenda.length > 0) state.agenda = newAgenda;
 
-    const closingHit = [...sentences].reverse().find((s) => /\b(adjourn|closing|thank you all|end of meeting)\b/i.test(s));
-    if (closingHit) document.getElementById('closingInput').value = closingHit;
+    const actionHits = sentences.filter((s) => /\b(action|must|shall|agree|resolve|submit|report|deadline|by )\b/i.test(s));
+    if (actionHits.length > 0) {
+      state.actions = [
+        { label: 'ACTIONABLE ITEMS', details: actionHits.slice(0, 4).join(' '), party: 'ASSIGNED PARTIES' },
+        { label: 'RESOLUTIONS', details: actionHits.slice(4, 8).join(' ') || 'Agreed by parties present.', party: 'ALL' }
+      ];
+    }
 
     renderDraftTables();
   }
@@ -1063,30 +970,28 @@
       renderDraftTables();
       document.querySelector('nav.tabs button[data-tab="tab-draft"]').click();
     } catch (e) {
-      alert('Invalid JSON format: ' + e.message);
+      alert('Invalid JSON: ' + e.message);
     }
   });
 
-  // --- 9. DRAFT EDITOR & TABLES ---
   function renderDraftTables() {
     const attBody = document.querySelector('#attendanceTable tbody');
     attBody.innerHTML = '';
     state.attendance.forEach((row, i) => {
+      row.sn = String(i + 1);
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${i + 1}</td>
         <td><input type="text" value="${escapeHtml(row.name)}" data-f="name"></td>
-        <td><input type="text" value="${escapeHtml(row.role)}" data-f="role"></td>
-        <td><input type="text" value="${escapeHtml(row.status)}" data-f="status"></td>
+        <td><input type="text" value="${escapeHtml(row.company)}" data-f="company"></td>
+        <td><input type="text" value="${escapeHtml(row.email)}" data-f="email"></td>
+        <td><input type="text" value="${escapeHtml(row.mode)}" data-f="mode"></td>
         <td><button class="btn btn-danger" style="padding:4px 8px;">X</button></td>
       `;
       tr.querySelectorAll('input').forEach((inp) => {
         inp.addEventListener('input', () => { state.attendance[i][inp.dataset.f] = inp.value; });
       });
-      tr.querySelector('button').addEventListener('click', () => {
-        state.attendance.splice(i, 1);
-        renderDraftTables();
-      });
+      tr.querySelector('button').addEventListener('click', () => { state.attendance.splice(i, 1); renderDraftTables(); });
       attBody.appendChild(tr);
     });
 
@@ -1096,22 +1001,22 @@
       const box = document.createElement('div');
       box.className = 'agenda-box';
       box.innerHTML = `
-        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;">
-          <input type="text" value="${escapeHtml(ag.title)}" data-f="title" style="font-weight:700;">
-          <button class="btn btn-danger" style="padding:4px 10px;">Delete</button>
+        <div class="grid-2" style="margin-bottom:6px;">
+          <div><label>S/N (or blank for sub-row)</label><input type="text" value="${escapeHtml(ag.sn)}" data-f="sn"></div>
+          <div><label>Topic / Heading</label><input type="text" value="${escapeHtml(ag.topic)}" data-f="topic" style="font-weight:700;"></div>
         </div>
-        <label>Discussion Summary</label>
+        <label>Discussion</label>
         <textarea rows="3" data-f="discussion">${escapeHtml(ag.discussion)}</textarea>
-        <label style="margin-top:6px;">Resolution / Decision</label>
-        <textarea rows="2" data-f="resolution">${escapeHtml(ag.resolution)}</textarea>
+        <div class="grid-2" style="margin-top:6px;">
+          <div><label>Identified Actions</label><input type="text" value="${escapeHtml(ag.actions)}" data-f="actions"></div>
+          <div><label>Action Party / Timeline</label><input type="text" value="${escapeHtml(ag.party)}" data-f="party"></div>
+        </div>
+        <div class="btn-row"><button class="btn btn-danger" style="padding:4px 10px;">Delete Row</button></div>
       `;
       box.querySelectorAll('input, textarea').forEach((el) => {
         el.addEventListener('input', () => { state.agenda[i][el.dataset.f] = el.value; });
       });
-      box.querySelector('button').addEventListener('click', () => {
-        state.agenda.splice(i, 1);
-        renderDraftTables();
-      });
+      box.querySelector('button').addEventListener('click', () => { state.agenda.splice(i, 1); renderDraftTables(); });
       agWrap.appendChild(box);
     });
 
@@ -1120,41 +1025,29 @@
     state.actions.forEach((act, i) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${i + 1}</td>
-        <td><input type="text" value="${escapeHtml(act.item)}" data-f="item"></td>
-        <td><input type="text" value="${escapeHtml(act.owner)}" data-f="owner"></td>
-        <td><input type="text" value="${escapeHtml(act.deadline)}" data-f="deadline"></td>
-        <td>
-          <select data-f="status">
-            <option ${act.status === 'Open' ? 'selected' : ''}>Open</option>
-            <option ${act.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-            <option ${act.status === 'Completed' ? 'selected' : ''}>Completed</option>
-          </select>
-        </td>
+        <td><input type="text" value="${escapeHtml(act.label)}" data-f="label" style="font-weight:700;"></td>
+        <td><textarea rows="2" data-f="details">${escapeHtml(act.details)}</textarea></td>
+        <td><input type="text" value="${escapeHtml(act.party)}" data-f="party"></td>
         <td><button class="btn btn-danger" style="padding:4px 8px;">X</button></td>
       `;
-      tr.querySelectorAll('input, select').forEach((inp) => {
-        inp.addEventListener('change', () => { state.actions[i][inp.dataset.f] = inp.value; });
-        inp.addEventListener('input', () => { state.actions[i][inp.dataset.f] = inp.value; });
+      tr.querySelectorAll('input, textarea').forEach((el) => {
+        el.addEventListener('input', () => { state.actions[i][el.dataset.f] = el.value; });
       });
-      tr.querySelector('button').addEventListener('click', () => {
-        state.actions.splice(i, 1);
-        renderDraftTables();
-      });
+      tr.querySelector('button').addEventListener('click', () => { state.actions.splice(i, 1); renderDraftTables(); });
       actBody.appendChild(tr);
     });
   }
 
   document.getElementById('addAttendeeBtn').addEventListener('click', () => {
-    state.attendance.push({ name: '', role: '', status: 'Present' });
+    state.attendance.push({ sn: String(state.attendance.length + 1), name: '', company: '', email: '', mode: 'PHYSICAL' });
     renderDraftTables();
   });
   document.getElementById('addAgendaBtn').addEventListener('click', () => {
-    state.agenda.push({ title: `${state.agenda.length + 1}.0 New Agenda Item`, discussion: '', resolution: '' });
+    state.agenda.push({ sn: '', topic: 'SUB-TOPIC', discussion: '', actions: '', party: '' });
     renderDraftTables();
   });
   document.getElementById('addActionBtn').addEventListener('click', () => {
-    state.actions.push({ item: '', owner: '', deadline: '', status: 'Open' });
+    state.actions.push({ label: 'ACTIONABLE ITEMS', details: '', party: '' });
     renderDraftTables();
   });
 
@@ -1165,13 +1058,13 @@
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
   }
 
-  // --- 10. OFFICIAL A4 NUPRC .DOCX GENERATOR ---
+  // Official A4 .docx matching sample MOM table layout (10,500 DXA fixed width)
   function buildCellXml(text, widthDxa, opts = {}) {
-    const { bold = false, sizeHalfPt = 24, fill = null, color = '000000', align = 'left', vAlign = 'center' } = opts;
+    const { bold = false, sizeHalfPt = 22, fill = null, color = '000000', align = 'left', vAlign = 'top' } = opts;
     const shdXml = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '';
     const parasXml = String(text || '').split('\n').map((line) => `
       <w:p>
-        <w:pPr><w:spacing w:before="40" w:after="40" w:line="260" w:lineRule="auto"/><w:jc w:val="${align}"/></w:pPr>
+        <w:pPr><w:spacing w:before="35" w:after="35" w:line="250" w:lineRule="auto"/><w:jc w:val="${align}"/></w:pPr>
         <w:r>
           <w:rPr>
             <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
@@ -1188,7 +1081,7 @@
           <w:tcW w:w="${widthDxa}" w:type="dxa"/>
           ${shdXml}
           <w:vAlign w:val="${vAlign}"/>
-          <w:tcMar><w:top w:w="90" w:type="dxa"/><w:bottom w:w="90" w:type="dxa"/><w:left w:w="130" w:type="dxa"/><w:right w:w="130" w:type="dxa"/></w:tcMar>
+          <w:tcMar><w:top w:w="70" w:type="dxa"/><w:bottom w:w="70" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>
         </w:tcPr>
         ${parasXml}
       </w:tc>`;
@@ -1203,12 +1096,12 @@
           <w:tblW w:w="${totalW}" w:type="dxa"/>
           <w:tblLayout w:type="fixed"/>
           <w:tblBorders>
-            <w:top w:val="single" w:sz="6" w:space="0" w:color="064E3B"/>
-            <w:left w:val="single" w:sz="6" w:space="0" w:color="064E3B"/>
-            <w:bottom w:val="single" w:sz="6" w:space="0" w:color="064E3B"/>
-            <w:right w:val="single" w:sz="6" w:space="0" w:color="064E3B"/>
-            <w:insideH w:val="single" w:sz="4" w:space="0" w:color="9CA3AF"/>
-            <w:insideV w:val="single" w:sz="4" w:space="0" w:color="9CA3AF"/>
+            <w:top w:val="single" w:sz="6" w:space="0" w:color="1F2937"/>
+            <w:left w:val="single" w:sz="6" w:space="0" w:color="1F2937"/>
+            <w:bottom w:val="single" w:sz="6" w:space="0" w:color="1F2937"/>
+            <w:right w:val="single" w:sz="6" w:space="0" w:color="1F2937"/>
+            <w:insideH w:val="single" w:sz="4" w:space="0" w:color="6B7280"/>
+            <w:insideV w:val="single" w:sz="4" w:space="0" w:color="6B7280"/>
           </w:tblBorders>
         </w:tblPr>
         <w:tblGrid>${gridCols}</w:tblGrid>
@@ -1216,143 +1109,175 @@
       </w:tbl>`;
   }
 
-  function buildHeadingParaXml(text, fillHex = null, textColor = '064E3B') {
-    const shd = fillHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${fillHex}"/>` : '';
-    return `
-      <w:p>
-        <w:pPr>
-          <w:spacing w:before="180" w:after="90"/>
-          ${shd}
-          <w:pBdr><w:bottom w:val="single" w:sz="8" w:space="2" w:color="064E3B"/></w:pBdr>
-        </w:pPr>
-        <w:r>
-          <w:rPr>
-            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
-            <w:b/><w:color w:val="${textColor}"/><w:sz w:val="26"/><w:szCs w:val="26"/>
-          </w:rPr>
-          <w:t xml:space="preserve">${escapeXml(text)}</w:t>
-        </w:r>
-      </w:p>`;
-  }
-
-  function buildBodyParaXml(text, boldPrefix = '') {
-    return `
-      <w:p>
-        <w:pPr><w:spacing w:before="60" w:after="80" w:line="276" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr>
-        ${boldPrefix ? `<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${escapeXml(boldPrefix)}</w:t></w:r>` : ''}
-        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>
-      </w:p>`;
-  }
-
   async function generateOfficialDocx(verbatimOnly = false) {
     const zip = new JSZip();
     const emblemCanvas = document.createElement('canvas');
-    emblemCanvas.width = 320;
-    emblemCanvas.height = 320;
+    emblemCanvas.width = 320; emblemCanvas.height = 320;
     drawNuprcEmblem(emblemCanvas);
     zip.file('word/media/emblem.png', emblemCanvas.toDataURL('image/png').split(',')[1], { base64: true });
 
-    const cxEmu = 914400, cyEmu = 914400;
-    const headerBannerXml = `
-      <w:p>
-        <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="60"/></w:pPr>
-        <w:r>
-          <w:drawing>
-            <wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
-              <wp:extent cx="${cxEmu}" cy="${cyEmu}"/>
-              <wp:docPr id="1" name="NUPRC Emblem"/>
-              <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-                <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                  <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                    <pic:nvPicPr><pic:cNvPr id="1" name="emblem.png"/><pic:cNvPicPr/></pic:nvPicPr>
-                    <pic:blipFill>
-                      <a:blip r:embed="rIdEmblem" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
-                      <a:stretch><a:fillRect/></a:stretch>
-                    </pic:blipFill>
-                    <pic:spPr>
-                      <a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxEmu}" cy="${cyEmu}"/></a:xfrm>
-                      <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-                    </pic:spPr>
-                  </pic:pic>
-                </a:graphicData>
-              </a:graphic>
-            </wp:inline>
-          </w:drawing>
-        </w:r>
-      </w:p>
-      <w:p>
-        <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="40"/></w:pPr>
-        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:color w:val="064E3B"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr>
-        <w:t>NIGERIAN UPSTREAM PETROLEUM REGULATORY COMMISSION (NUPRC)</w:t></w:r>
-      </w:p>
-      <w:p>
-        <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="160"/></w:pPr>
-        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-        <w:t>${escapeXml(document.getElementById('metaTitle').value.toUpperCase())}</w:t></w:r>
-      </w:p>`;
+    const cxEmu = 822960, cyEmu = 822960;
+    const titleText = document.getElementById('metaTitle').value.toUpperCase();
 
-    let mainBodyXml = '';
+    // Top Title & Emblem Banner Table (10,500 DXA: 7900 + 2600)
+    const bannerTable = buildFixedTableXml([7900, 2600], `
+      <w:tr>
+        ${buildCellXml(titleText, 7900, { bold: true, sizeHalfPt: 26, color: '064E3B', vAlign: 'center' })}
+        <w:tc>
+          <w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>
+          <w:p><w:pPr><w:jc w:val="center"/></w:pPr>
+            <w:r><w:drawing>
+              <wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+                <wp:extent cx="${cxEmu}" cy="${cyEmu}"/><wp:docPr id="1" name="NUPRC Emblem"/>
+                <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                  <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                    <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                      <pic:nvPicPr><pic:cNvPr id="1" name="emblem.png"/><pic:cNvPicPr/></pic:nvPicPr>
+                      <pic:blipFill><a:blip r:embed="rIdEmblem" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                      <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxEmu}" cy="${cyEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+                    </pic:pic>
+                  </a:graphicData>
+                </a:graphic>
+              </wp:inline>
+            </w:drawing></w:r>
+          </w:p>
+        </w:tc>
+      </w:tr>
+    `);
+
+    let bodyContent = bannerTable;
+
     if (verbatimOnly) {
-      mainBodyXml = `${buildHeadingParaXml('VERBATIM MEETING TRANSCRIPT')}${buildBodyParaXml(verbatimText.value || 'No transcript recorded.')}`;
+      bodyContent += buildFixedTableXml([10500], `
+        <w:tr>${buildCellXml('VERBATIM TRANSCRIPT', 10500, { bold: true, fill: 'D1FAE5', color: '064E3B' })}</w:tr>
+        <w:tr>${buildCellXml(verbatimText.value || 'No transcript recorded.', 10500)}</w:tr>
+      `);
     } else {
-      const metaRows = [
-        ['Department / Division:', document.getElementById('metaDept').value],
-        ['Date of Meeting:', document.getElementById('metaDate').value || new Date().toISOString().slice(0, 10)],
-        ['Time & Venue:', document.getElementById('metaVenue').value],
-        ['Chairperson:', document.getElementById('metaChair').value],
-        ['Secretary / Rapporteur:', document.getElementById('metaSec').value]
-      ].map(([k, v]) => `<w:tr>${buildCellXml(k, 2600, { bold: true, fill: 'F3F4F6', color: '064E3B' })}${buildCellXml(v, 7900)}</w:tr>`).join('');
-      const metaTable = buildFixedTableXml([2600, 7900], metaRows);
+      // Metadata Table (10,500 DXA: 3500 + 3500 + 3500)
+      const metaTable = buildFixedTableXml([3500, 3500, 3500], `
+        <w:tr>
+          ${buildCellXml('Doc. Title', 3500, { bold: true, fill: 'E5E7EB' })}
+          ${buildCellXml('DATE', 3500, { bold: true, fill: 'E5E7EB' })}
+          ${buildCellXml('TIME', 3500, { bold: true, fill: 'E5E7EB' })}
+        </w:tr>
+        <w:tr>
+          ${buildCellXml(document.getElementById('metaDocTitle').value, 3500, { bold: true })}
+          ${buildCellXml(document.getElementById('metaDate').value, 3500)}
+          ${buildCellXml(document.getElementById('metaTime').value, 3500)}
+        </w:tr>
+        <w:tr>
+          ${buildCellXml('VENUE:', 3500, { bold: true, fill: 'E5E7EB' })}
+          ${buildCellXml(document.getElementById('metaVenue').value, 7000)}
+        </w:tr>
+      `);
 
-      const attHeader = `<w:tr>${buildCellXml('S/N', 800, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}${buildCellXml('NAME', 3700, { bold: true, fill: '064E3B', color: 'FFFFFF' })}${buildCellXml('DESIGNATION / UNIT', 4200, { bold: true, fill: '064E3B', color: 'FFFFFF' })}${buildCellXml('STATUS', 1800, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}</w:tr>`;
-      const attRows = state.attendance.map((a, idx) => `<w:tr>${buildCellXml(String(idx + 1), 800, { align: 'center' })}${buildCellXml(a.name, 3700, { bold: true })}${buildCellXml(a.role, 4200)}${buildCellXml(a.status, 1800, { align: 'center' })}</w:tr>`).join('');
-      const attTable = buildFixedTableXml([800, 3700, 4200, 1800], attHeader + attRows);
+      // Attendance Table (10,500 DXA: 700 + 3100 + 2100 + 3000 + 1600)
+      const attHeader = `
+        <w:tr>${buildCellXml('ATTENDANCE', 10500, { bold: true, fill: 'D1FAE5', color: '064E3B' })}</w:tr>
+        <w:tr>
+          ${buildCellXml('S/N', 700, { bold: true, fill: 'F3F4F6', align: 'center' })}
+          ${buildCellXml('NAME', 3100, { bold: true, fill: 'F3F4F6' })}
+          ${buildCellXml('COMPANY', 2100, { bold: true, fill: 'F3F4F6' })}
+          ${buildCellXml('EMAIL', 3000, { bold: true, fill: 'F3F4F6' })}
+          ${buildCellXml('MODE', 1600, { bold: true, fill: 'F3F4F6', align: 'center' })}
+        </w:tr>`;
+      const attRows = state.attendance.map((a, idx) => `
+        <w:tr>
+          ${buildCellXml(String(idx + 1), 700, { align: 'center' })}
+          ${buildCellXml(a.name, 3100, { bold: true })}
+          ${buildCellXml(a.company, 2100)}
+          ${buildCellXml(a.email, 3000)}
+          ${buildCellXml(a.mode, 1600, { align: 'center' })}
+        </w:tr>`).join('');
+      const attTable = buildFixedTableXml([700, 3100, 2100, 3000, 1600], attHeader + attRows);
 
-      const agendaXml = state.agenda.map((ag) => `${buildHeadingParaXml(ag.title)}${buildBodyParaXml(ag.discussion, 'Deliberation: ')}${buildBodyParaXml(ag.resolution, 'Resolution: ')}`).join('');
+      // Main 4-Column MOM Table (10,500 DXA: 700 + 5200 + 2600 + 2000)
+      const momHeader = `
+        <w:tr>
+          ${buildCellXml('S/N', 700, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}
+          ${buildCellXml('DISCUSSION', 5200, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
+          ${buildCellXml('IDENTIFIED ACTIONS', 2600, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
+          ${buildCellXml('ACTION PARTY/TIMELINE', 2000, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
+        </w:tr>
+        <w:tr>
+          ${buildCellXml('', 700)}
+          ${buildCellXml('SAFETY BRIEF\n' + document.getElementById('safetyBriefInput').value, 5200, { bold: false })}
+          ${buildCellXml('', 2600)}
+          ${buildCellXml('', 2000)}
+        </w:tr>`;
 
-      const actHeader = `<w:tr>${buildCellXml('S/N', 700, { bold: true, fill: 'D1FAE5', color: '064E3B', align: 'center' })}${buildCellXml('ACTION ITEM', 5000, { bold: true, fill: 'D1FAE5', color: '064E3B' })}${buildCellXml('RESPONSIBLE PARTY', 2400, { bold: true, fill: 'D1FAE5', color: '064E3B' })}${buildCellXml('TIMELINE / STATUS', 2400, { bold: true, fill: 'D1FAE5', color: '064E3B' })}</w:tr>`;
-      const actRows = state.actions.map((act, idx) => `<w:tr>${buildCellXml(String(idx + 1), 700, { align: 'center' })}${buildCellXml(act.item, 5000)}${buildCellXml(act.owner, 2400, { bold: true })}${buildCellXml(`${act.deadline} (${act.status})`, 2400)}</w:tr>`).join('');
-      const actTable = buildFixedTableXml([700, 5000, 2400, 2400], actHeader + actRows);
+      const momAgendaRows = state.agenda.map((ag) => `
+        <w:tr>
+          ${buildCellXml(ag.sn || '', 700, { bold: true, align: 'center' })}
+          ${buildCellXml((ag.topic ? ag.topic + '\n' : '') + (ag.discussion || ''), 5200)}
+          ${buildCellXml(ag.actions || '', 2600)}
+          ${buildCellXml(ag.party || '', 2000, { bold: true })}
+        </w:tr>`).join('');
 
-      const signRows = `
-        <w:tr>${buildCellXml('PREPARED BY', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}${buildCellXml('SIGNATURE & DATE', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}${buildCellXml('APPROVED BY', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}${buildCellXml('SIGNATURE & DATE', 2625, { bold: true, fill: 'F3F4F6', color: '064E3B' })}</w:tr>
-        <w:tr>${buildCellXml(document.getElementById('signPrep').value, 2625, { bold: true })}${buildCellXml('\n_______________________\nDate: _________________', 2625)}${buildCellXml(document.getElementById('signAppr').value, 2625, { bold: true })}${buildCellXml('\n_______________________\nDate: _________________', 2625)}</w:tr>`;
-      const signTable = buildFixedTableXml([2625, 2625, 2625, 2625], signRows);
+      const momActionRows = state.actions.map((act) => `
+        <w:tr>
+          ${buildCellXml('', 700)}
+          ${buildCellXml((act.label ? act.label + '\n' : '') + (act.details || ''), 5200, { fill: act.label === 'ACTIONABLE ITEMS' ? 'D1FAE5' : null })}
+          ${buildCellXml('', 2600)}
+          ${buildCellXml(act.party || '', 2000, { bold: true })}
+        </w:tr>`).join('');
 
-      mainBodyXml = `
-        ${metaTable}
-        ${buildHeadingParaXml('1. ATTENDANCE REGISTER')}
-        ${attTable}
-        ${buildHeadingParaXml('SAFETY BRIEF')}
-        ${buildBodyParaXml(document.getElementById('safetyBriefInput').value)}
-        ${buildHeadingParaXml('2. DISCUSSIONS & RESOLUTIONS')}
-        ${agendaXml}
-        ${buildHeadingParaXml('3. ACTIONABLE ITEMS', 'D1FAE5', '064E3B')}
-        ${actTable}
-        ${buildHeadingParaXml('4. CLOSING REMARKS')}
-        ${buildBodyParaXml(document.getElementById('closingInput').value)}
-        ${buildHeadingParaXml('5. AUTHENTICATION & SIGN-OFF')}
-        ${signTable}
-      `;
+      const momClosingRow = `
+        <w:tr>
+          ${buildCellXml('', 700)}
+          ${buildCellXml('Closing Remarks\n' + document.getElementById('closingInput').value, 9800)}
+        </w:tr>`;
+
+      const p1 = document.getElementById('signParty1').value;
+      const p2 = document.getElementById('signParty2').value;
+      const p3 = document.getElementById('signParty3').value;
+
+      const momSignRows = `
+        <w:tr>
+          ${buildCellXml('', 700)}
+          ${buildCellXml(p1, 3266, { bold: true, fill: 'F3F4F6', align: 'center' })}
+          ${buildCellXml(p2, 3267, { bold: true, fill: 'F3F4F6', align: 'center' })}
+          ${buildCellXml(p3, 3267, { bold: true, fill: 'F3F4F6', align: 'center' })}
+        </w:tr>
+        <w:tr>
+          ${buildCellXml('Name', 700, { bold: true, fill: 'F3F4F6' })}
+          ${buildCellXml('', 3266)}
+          ${buildCellXml('', 3267)}
+          ${buildCellXml('', 3267)}
+        </w:tr>
+        <w:tr>
+          ${buildCellXml('Signature', 700, { bold: true, fill: 'F3F4F6' })}
+          ${buildCellXml('', 3266)}
+          ${buildCellXml('', 3267)}
+          ${buildCellXml('', 3267)}
+        </w:tr>
+        <w:tr>
+          ${buildCellXml('Date', 700, { bold: true, fill: 'F3F4F6' })}
+          ${buildCellXml('', 3266)}
+          ${buildCellXml('', 3267)}
+          ${buildCellXml('', 3267)}
+        </w:tr>`;
+
+      const momTable = buildFixedTableXml([700, 5200, 2600, 2000], momHeader + momAgendaRows + momActionRows + momClosingRow + momSignRows);
+      bodyContent += metaTable + `<w:p><w:pPr><w:spacing w:before="80" w:after="80"/></w:pPr></w:p>` + attTable + `<w:p><w:pPr><w:spacing w:before="80" w:after="80"/></w:pPr></w:p>` + momTable;
     }
 
     const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-        <w:body>${headerBannerXml}${mainBodyXml}
+        <w:body>${bodyContent}
           <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="720" w:right="703" w:bottom="720" w:left="703" w:header="450" w:footer="450" w:gutter="0"/></w:sectPr>
         </w:body>
       </w:document>`;
 
     zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
     zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
-    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdEmblem" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/emblem.png"/></Relationships>`);
+    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><Relationship Id="rIdEmblem" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/emblem.png"/></Relationships>`);
     zip.file('word/document.xml', documentXml);
 
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    const dateTag = document.getElementById('metaDate').value || new Date().toISOString().slice(0, 10);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = verbatimOnly ? `NUPRC_Verbatim_Transcript_${dateTag}.docx` : `NUPRC_Official_Minutes_${dateTag}.docx`;
+    a.download = verbatimOnly ? 'NUPRC_Verbatim_Transcript.docx' : 'NUPRC_Official_MOM.docx';
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -1363,13 +1288,13 @@
     const blob = new Blob([verbatimText.value], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `NUPRC_Transcript_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = 'NUPRC_Transcript.txt';
     a.click();
     URL.revokeObjectURL(a.href);
   });
 
-  // --- 11. OFFLINE INDEXEDDB HISTORY ---
-  const DB_NAME = 'nuprc_minute_db', STORE_NAME = 'sessions';
+  // IndexedDB History
+  const DB_NAME = 'nuprc_minute_db_v4', STORE_NAME = 'sessions';
   function openDb() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, 1);
@@ -1385,22 +1310,22 @@
       id: crypto.randomUUID(),
       savedAt: new Date().toLocaleString(),
       title: document.getElementById('metaTitle').value,
+      docTitle: document.getElementById('metaDocTitle').value,
       date: document.getElementById('metaDate').value,
-      dept: document.getElementById('metaDept').value,
+      time: document.getElementById('metaTime').value,
       venue: document.getElementById('metaVenue').value,
-      chair: document.getElementById('metaChair').value,
-      sec: document.getElementById('metaSec').value,
       safety: document.getElementById('safetyBriefInput').value,
       closing: document.getElementById('closingInput').value,
-      signPrep: document.getElementById('signPrep').value,
-      signAppr: document.getElementById('signAppr').value,
+      signParty1: document.getElementById('signParty1').value,
+      signParty2: document.getElementById('signParty2').value,
+      signParty3: document.getElementById('signParty3').value,
       transcript: verbatimText.value,
       state: JSON.parse(JSON.stringify(state))
     };
     const tx = db.transaction(STORE_NAME, 'readwrite');
     tx.objectStore(STORE_NAME).put(record);
     await new Promise((r) => { tx.oncomplete = r; });
-    alert('Saved offline to browser IndexedDB!');
+    alert('Saved to Offline History.');
     renderHistory();
   }
 
@@ -1427,15 +1352,15 @@
       `;
       div.querySelector('[data-load]').addEventListener('click', () => {
         document.getElementById('metaTitle').value = rec.title;
-        document.getElementById('metaDate').value = rec.date;
-        document.getElementById('metaDept').value = rec.dept;
-        document.getElementById('metaVenue').value = rec.venue;
-        document.getElementById('metaChair').value = rec.chair;
-        document.getElementById('metaSec').value = rec.sec;
-        document.getElementById('safetyBriefInput').value = rec.safety;
-        document.getElementById('closingInput').value = rec.closing;
-        document.getElementById('signPrep').value = rec.signPrep;
-        document.getElementById('signAppr').value = rec.signAppr;
+        document.getElementById('metaDocTitle').value = rec.docTitle || 'MINUTES OF MEETING';
+        document.getElementById('metaDate').value = rec.date || '';
+        document.getElementById('metaTime').value = rec.time || '';
+        document.getElementById('metaVenue').value = rec.venue || '';
+        document.getElementById('safetyBriefInput').value = rec.safety || '';
+        document.getElementById('closingInput').value = rec.closing || '';
+        document.getElementById('signParty1').value = rec.signParty1 || 'NUPRC';
+        document.getElementById('signParty2').value = rec.signParty2 || 'CONOG';
+        document.getElementById('signParty3').value = rec.signParty3 || 'HOST COMMUNITY';
         verbatimText.value = rec.transcript || '';
         state = rec.state;
         updateTranscriptStats();
@@ -1453,7 +1378,6 @@
   }
 
   document.getElementById('saveHistoryBtn').addEventListener('click', saveSession);
-  document.getElementById('metaDate').value = new Date().toISOString().slice(0, 10);
   renderDraftTables();
   renderHistory();
 </script>

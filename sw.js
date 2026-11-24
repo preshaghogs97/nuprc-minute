@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nuprc-minute-hybrid-v3';
+const CACHE_NAME = 'nuprc-minute-hybrid-v4';
 const APP_SHELL = [
   './',
   './index.html',
