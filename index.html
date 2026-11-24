@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#064E3B" />
-  <title>NUPRC Minute — Hybrid PWA (v6)</title>
+  <title>NUPRC Minute — Hybrid PWA (v7)</title>
   <link rel="manifest" href="./manifest.json" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
@@ -135,6 +135,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
       padding: 8px 10px;
       border: 1px solid #E5E7EB;
       border-radius: 6px;
@@ -200,8 +202,8 @@
   <div class="brand">
     <canvas id="headerEmblem" width="320" height="320"></canvas>
     <div>
-      <h1>NUPRC Minute <span style="font-size:0.72rem;background:#047857;padding:2px 6px;border-radius:4px;">v6</span></h1>
-      <small>Party-Tagged MOM Extraction • WAV-Chunked Whisper API • Official Table Export</small>
+      <h1>NUPRC Minute <span style="font-size:0.72rem;background:#047857;padding:2px 6px;border-radius:4px;">v7</span></h1>
+      <small>Auto 16 kHz WAV Conversion • Party-Tagged MOM Extraction • Official Table Export</small>
     </div>
   </div>
   <div class="status-bar">
@@ -246,8 +248,18 @@
         </div>
       </div>
 
+      <div class="grid-2" style="margin-top:10px;">
+        <div>
+          <label>Automatic Audio Pre-Conversion Policy</label>
+          <select id="autoWavPolicy">
+            <option value="large_only">Auto-convert to 16 kHz WAV when &gt; 12 MB (Fastest)</option>
+            <option value="all_non_wav">Auto-convert ALL non-.wav files to 16 kHz WAV before upload</option>
+          </select>
+        </div>
+      </div>
+
       <div class="btn-row">
-        <button id="saveApiBtn" class="btn btn-secondary">Save API Key Locally</button>
+        <button id="saveApiBtn" class="btn btn-secondary">Save Settings Locally</button>
         <button id="preloadWorkerBtn" class="btn btn-primary">Cache Offline Worker (~40 MB)</button>
         <button id="forceResetCacheBtn" class="btn btn-secondary">Force Refresh App Cache</button>
         <span id="workerStatusText" style="font-size:0.84rem;color:var(--muted);">Ready.</span>
@@ -261,7 +273,7 @@
         <div>
           <label>Select Meeting Recordings (.mp3, .m4a, .wav, .ogg, .aac)</label>
           <input type="file" id="audioFilesInput" accept=".mp3,.m4a,.wav,.ogg,.aac,audio/*" multiple />
-          <small style="color:var(--muted);display:block;margin-top:4px;">Files &gt; 12 MB are decoded into 16 kHz mono WAV slices (~8 MB each) with valid headers so API HTTP 400 and HTTP 413 never happen.</small>
+          <small style="color:var(--muted);display:block;margin-top:4px;">Automatically converts recordings into valid 16 kHz mono WAV files or chunks when needed, or click <strong>Save .WAV</strong> on any queued item.</small>
         </div>
         <div>
           <label>Live Microphone Recorder (Local Capture)</label>
@@ -277,6 +289,7 @@
 
       <div class="btn-row">
         <button id="transcribeAllBtn" class="btn btn-primary" disabled>Transcribe Queue Now</button>
+        <button id="convertAllWavBtn" class="btn btn-secondary" disabled>Auto-Convert Queue to .WAV</button>
         <button id="clearQueueBtn" class="btn btn-secondary">Clear Queue</button>
       </div>
       <div class="progress-wrap"><div id="transcribeProgress" class="progress-bar"></div></div>
@@ -456,12 +469,14 @@
   const engineModeEl = document.getElementById('engineMode');
   const apiKeyEl = document.getElementById('apiKeyInput');
   const apiProviderEl = document.getElementById('apiProviderSelect');
+  const autoWavPolicyEl = document.getElementById('autoWavPolicy');
   const netBadge = document.getElementById('netBadge');
   const engineBadge = document.getElementById('engineBadge');
 
   apiKeyEl.value = localStorage.getItem('nuprc_whisper_api_key') || '';
   apiProviderEl.value = localStorage.getItem('nuprc_whisper_provider') || 'groq';
   engineModeEl.value = localStorage.getItem('nuprc_whisper_mode') || 'online';
+  autoWavPolicyEl.value = localStorage.getItem('nuprc_auto_wav_policy') || 'large_only';
 
   function resolveActiveEngine() {
     const mode = engineModeEl.value;
@@ -482,12 +497,16 @@
     localStorage.setItem('nuprc_whisper_api_key', apiKeyEl.value.trim());
     localStorage.setItem('nuprc_whisper_provider', apiProviderEl.value);
     localStorage.setItem('nuprc_whisper_mode', engineModeEl.value);
+    localStorage.setItem('nuprc_auto_wav_policy', autoWavPolicyEl.value);
     updateStatusBadges();
-    alert('API key & mode saved locally.');
+    alert('Settings saved locally.');
   });
   engineModeEl.addEventListener('change', () => {
     localStorage.setItem('nuprc_whisper_mode', engineModeEl.value);
     updateStatusBadges();
+  });
+  autoWavPolicyEl.addEventListener('change', () => {
+    localStorage.setItem('nuprc_auto_wav_policy', autoWavPolicyEl.value);
   });
   apiKeyEl.addEventListener('input', updateStatusBadges);
   window.addEventListener('online', updateStatusBadges);
@@ -557,7 +576,7 @@
     getOfflineWorker().postMessage({ type: 'preload' });
   });
 
-  async function decodeTo16kMono(fileOrBlob, timeoutMs = 25000) {
+  async function decodeTo16kMono(fileOrBlob, timeoutMs = 30000) {
     const decodeTask = (async () => {
       const arrayBuffer = await fileOrBlob.arrayBuffer();
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -578,7 +597,7 @@
       return rendered.getChannelData(0);
     })();
     const timeoutTask = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Audio decoding timed out. Try converting the file to .mp3 or .wav.')), timeoutMs)
+      setTimeout(() => reject(new Error('Audio decoding timed out. Try converting the file to .wav.')), timeoutMs)
     );
     return Promise.race([decodeTask, timeoutTask]);
   }
@@ -613,6 +632,13 @@
       view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
     }
     return new Blob([buffer], { type: 'audio/wav' });
+  }
+
+  async function convertBlobTo16kWav(fileOrBlob, filename = 'audio.wav') {
+    const pcm16k = await decodeTo16kMono(fileOrBlob, 35000);
+    const wavBlob = encodePcm16kToWavBlob(pcm16k);
+    const baseName = (filename || 'audio').replace(/\.[^.]+$/, '');
+    return { wavBlob, wavName: `${baseName}_16k_mono.wav`, pcm16k };
   }
 
   function transcribeViaOfflineWorker(pcm16k, onInferring) {
@@ -655,7 +681,7 @@
   async function transcribeViaOnlineApiChunked(fileOrBlob, filename, onProgress) {
     const apiKey = apiKeyEl.value.trim();
     if (!apiKey) {
-      throw new Error('Missing API key. Paste your Groq key (gsk_...) in Step 1A and click Save API Key Locally.');
+      throw new Error('Missing API key. Paste your Groq key (gsk_...) in Step 1A and click Save Settings Locally.');
     }
     if (!navigator.onLine) {
       throw new Error('No internet connection detected while in Online API mode.');
@@ -668,15 +694,26 @@
     const model = provider === 'groq' ? 'whisper-large-v3-turbo' : 'whisper-1';
 
     const DIRECT_LIMIT_BYTES = 12 * 1024 * 1024;
-    if (fileOrBlob.size <= DIRECT_LIMIT_BYTES) {
+    const policy = autoWavPolicyEl.value;
+    const isAlreadyWav = /\.wav$/i.test(filename || '') || fileOrBlob.type === 'audio/wav';
+    const mustConvertFirst = (policy === 'all_non_wav' && !isAlreadyWav) || fileOrBlob.size > DIRECT_LIMIT_BYTES;
+
+    if (!mustConvertFirst) {
       if (onProgress) onProgress(1, 1, 'Uploading file...');
       return await uploadSingleChunkToApi(fileOrBlob, filename || 'meeting.mp3', apiKey, url, model);
     }
 
-    if (onProgress) onProgress(0, 1, 'Decoding into valid WAV segments...');
-    const pcm16k = await decodeTo16kMono(fileOrBlob, 30000);
+    if (onProgress) onProgress(0, 1, 'Auto-converting to 16 kHz mono WAV...');
+    const { wavBlob, wavName, pcm16k } = await convertBlobTo16kWav(fileOrBlob, filename);
     await yieldToUi(40);
 
+    // If the converted WAV is <= 12 MB, upload as a single valid WAV file
+    if (wavBlob.size <= DIRECT_LIMIT_BYTES) {
+      if (onProgress) onProgress(1, 1, 'Uploading converted WAV...');
+      return await uploadSingleChunkToApi(wavBlob, wavName, apiKey, url, model);
+    }
+
+    // Otherwise slice into valid ~7.68 MB WAV segments (240s @ 16kHz mono)
     const sliceSamples = 16000 * 240;
     const totalChunks = Math.ceil(pcm16k.length / sliceSamples);
     const parts = [];
@@ -685,8 +722,8 @@
       if (onProgress) onProgress(c + 1, totalChunks, `Uploading WAV part ${c + 1}/${totalChunks}...`);
       const start = c * sliceSamples;
       const end = Math.min(pcm16k.length, start + sliceSamples);
-      const wavBlob = encodePcm16kToWavBlob(pcm16k.subarray(start, end));
-      const partText = await uploadSingleChunkToApi(wavBlob, `segment_${c + 1}.wav`, apiKey, url, model);
+      const chunkWav = encodePcm16kToWavBlob(pcm16k.subarray(start, end));
+      const partText = await uploadSingleChunkToApi(chunkWav, `segment_${c + 1}.wav`, apiKey, url, model);
       if (partText) parts.push(partText);
       await yieldToUi(60);
     }
@@ -770,10 +807,19 @@
   const audioFilesInput = document.getElementById('audioFilesInput');
   const audioQueueList = document.getElementById('audioQueueList');
   const transcribeAllBtn = document.getElementById('transcribeAllBtn');
+  const convertAllWavBtn = document.getElementById('convertAllWavBtn');
   const verbatimText = document.getElementById('verbatimText');
   const transcribeProgress = document.getElementById('transcribeProgress');
   const transcribeStatus = document.getElementById('transcribeStatus');
   const transcribeErrorBox = document.getElementById('transcribeErrorBox');
+
+  function triggerDownload(blob, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
 
   function updateQueueUI() {
     audioQueue.sort((a, b) => a.timestamp - b.timestamp || a.name.localeCompare(b.name));
@@ -783,20 +829,62 @@
       div.className = 'queue-item';
       const mb = (item.blob.size / (1024 * 1024)).toFixed(1);
       div.innerHTML = `
-        <span><strong>#${idx + 1}</strong> ${item.name} <small style="color:#6B7280;">(${mb} MB)</small></span>
-        <span>
-          <span class="badge ${item.status === 'Done' ? 'ok' : 'warn'}" style="margin-right:6px;">${item.status}</span>
-          <button class="btn btn-secondary" style="padding:3px 8px;font-size:0.75rem;">Remove</button>
+        <span><strong>#${idx + 1}</strong> ${escapeHtml(item.name)} <small style="color:#6B7280;">(${mb} MB)</small></span>
+        <span class="btn-row" style="margin-top:0;">
+          <span class="badge ${item.status === 'Done' ? 'ok' : 'warn'}">${escapeHtml(item.status)}</span>
+          <button class="btn btn-secondary" style="padding:3px 8px;font-size:0.75rem;" data-wav>Save .WAV</button>
+          <button class="btn btn-secondary" style="padding:3px 8px;font-size:0.75rem;" data-rm>Remove</button>
         </span>
       `;
-      div.querySelector('button').addEventListener('click', () => {
+      div.querySelector('[data-wav]').addEventListener('click', async () => {
+        try {
+          item.status = 'Converting WAV...';
+          updateQueueUI();
+          const { wavBlob, wavName } = await convertBlobTo16kWav(item.blob, item.name);
+          triggerDownload(wavBlob, wavName);
+          item.status = 'WAV Saved';
+        } catch (err) {
+          item.status = 'WAV Error';
+          alert('WAV conversion error: ' + err.message);
+        }
+        updateQueueUI();
+      });
+      div.querySelector('[data-rm]').addEventListener('click', () => {
         audioQueue = audioQueue.filter((q) => q.id !== item.id);
         updateQueueUI();
       });
       audioQueueList.appendChild(div);
     });
-    transcribeAllBtn.disabled = audioQueue.length === 0;
+    const hasItems = audioQueue.length > 0;
+    transcribeAllBtn.disabled = !hasItems;
+    convertAllWavBtn.disabled = !hasItems;
   }
+
+  convertAllWavBtn.addEventListener('click', async () => {
+    if (audioQueue.length === 0) return;
+    convertAllWavBtn.disabled = true;
+    transcribeErrorBox.style.display = 'none';
+    try {
+      for (let i = 0; i < audioQueue.length; i++) {
+        const item = audioQueue[i];
+        item.status = 'Converting WAV...';
+        updateQueueUI();
+        transcribeStatus.textContent = `Converting (${i + 1}/${audioQueue.length}): ${item.name} -> 16 kHz mono .wav...`;
+        const { wavBlob, wavName } = await convertBlobTo16kWav(item.blob, item.name);
+        triggerDownload(wavBlob, wavName);
+        item.status = 'WAV Saved';
+        transcribeProgress.style.width = `${Math.round(((i + 1) / audioQueue.length) * 100)}%`;
+        updateQueueUI();
+        await yieldToUi(120);
+      }
+      transcribeStatus.textContent = `Converted ${audioQueue.length} file(s) to 16 kHz mono .wav.`;
+    } catch (err) {
+      transcribeErrorBox.textContent = `WAV Conversion Error: ${err.message}`;
+      transcribeErrorBox.style.display = 'block';
+    } finally {
+      convertAllWavBtn.disabled = audioQueue.length === 0;
+    }
+  });
 
   audioFilesInput.addEventListener('change', (e) => {
     Array.from(e.target.files || []).forEach((f) => {
@@ -870,7 +958,7 @@
 
         if (engine === 'online') {
           text = await transcribeViaOnlineApiChunked(item.blob, item.name, (part, total, labelText) => {
-            item.status = total > 1 ? `WAV ${part}/${total}...` : 'Uploading...';
+            item.status = total > 1 ? `WAV ${part}/${total}...` : labelText;
             updateQueueUI();
             transcribeStatus.textContent = `Online API (${i + 1}/${audioQueue.length}): ${item.name} — ${labelText}`;
           });
@@ -878,7 +966,7 @@
           item.status = 'Decoding...';
           updateQueueUI();
           transcribeStatus.textContent = `Offline Worker (${i + 1}/${audioQueue.length}): Decoding ${item.name}...`;
-          const pcm16k = await decodeTo16kMono(item.blob, 25000);
+          const pcm16k = await decodeTo16kMono(item.blob, 30000);
           text = await transcribeViaOfflineWorker(pcm16k, () => {
             item.status = 'Transcribing...';
             updateQueueUI();
@@ -902,7 +990,7 @@
       transcribeErrorBox.style.display = 'block';
       transcribeStatus.textContent = 'Stopped with error.';
     } finally {
-      transcribeAllBtn.disabled = false;
+      transcribeAllBtn.disabled = audioQueue.length === 0;
     }
   });
 
@@ -941,7 +1029,6 @@
     ]
   };
 
-  // Detect all parties referenced in a statement and return a clean party label + short tag
   function detectPartiesInText(text) {
     const found = [];
     const add = (label) => { if (!found.includes(label)) found.push(label); };
@@ -980,7 +1067,6 @@
     for (let i = 0; i < bodySentences.length; i += chunkSize) {
       const slice = bodySentences.slice(i, i + chunkSize);
 
-      // Tag each sentence by party so multi-party turns are clearly labeled inside DISCUSSION
       const taggedLines = slice.map((sent) => {
         const p = detectPartiesInText(sent);
         return `[${p.tag}] ${sent}`;
@@ -1367,7 +1453,7 @@
     URL.revokeObjectURL(a.href);
   });
 
-  const DB_NAME = 'nuprc_minute_db_v6', STORE_NAME = 'sessions';
+  const DB_NAME = 'nuprc_minute_db_v7', STORE_NAME = 'sessions';
   function openDb() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, 1);
