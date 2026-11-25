@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#064E3B" />
-  <title>NUPRC Minute — Hybrid PWA (v7)</title>
+  <title>NUPRC Minute</title>
   <link rel="manifest" href="./manifest.json" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
@@ -41,8 +41,7 @@
     }
     .brand { display: flex; align-items: center; gap: 12px; }
     .brand canvas { width: 44px; height: 44px; border-radius: 50%; background: #fff; }
-    .brand h1 { margin: 0; font-size: 1.15rem; letter-spacing: 0.3px; }
-    .brand small { display: block; color: #A7F3D0; font-size: 0.78rem; }
+    .brand h1 { margin: 0; font-size: 1.2rem; letter-spacing: 0.3px; }
     .status-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .badge {
       font-size: 0.75rem;
@@ -102,7 +101,7 @@
     .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
 
     label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
-    input[type="text"], input[type="password"], input[type="date"], textarea, select {
+    input[type="text"], input[type="password"], input[type="number"], textarea, select {
       width: 100%;
       padding: 8px 10px;
       border: 1px solid var(--border);
@@ -202,8 +201,7 @@
   <div class="brand">
     <canvas id="headerEmblem" width="320" height="320"></canvas>
     <div>
-      <h1>NUPRC Minute <span style="font-size:0.72rem;background:#047857;padding:2px 6px;border-radius:4px;">v7</span></h1>
-      <small>Auto 16 kHz WAV Conversion • Party-Tagged MOM Extraction • Official Table Export</small>
+      <h1>NUPRC Minute</h1>
     </div>
   </div>
   <div class="status-bar">
@@ -308,7 +306,7 @@
         <span id="charCount">Characters: 0</span>
       </div>
       <div class="btn-row">
-        <button id="extractMinutesBtn" class="btn btn-primary">Auto-Extract Party-Tagged MOM Table</button>
+        <button id="extractMinutesBtn" class="btn btn-primary">Synthesize Key Points into MOM Draft</button>
         <button id="exportTxtBtn" class="btn btn-secondary">Export Verbatim (.txt)</button>
         <button id="exportVerbatimDocxBtn" class="btn btn-secondary">Export Verbatim (.docx)</button>
       </div>
@@ -316,7 +314,7 @@
 
     <div class="card">
       <h2>Optional Local LLM / JSON Import</h2>
-      <textarea id="llmJsonInput" rows="3" placeholder='{"safetyBrief":"...","agenda":[{"sn":"1","topic":"OPENING REMARKS","discussion":"...","actions":"...","party":"ALL"}],"actions":[{"label":"RESOLUTIONS","details":"...","party":"CONOG"}],"closing":"..."}'></textarea>
+      <textarea id="llmJsonInput" rows="3" placeholder='{"safetyBrief":"This was presented by ...","agenda":[{"sn":"1","topic":"OPENING REMARKS","discussion":"Synthesized summary of key points...","actions":"","party":""}],"actions":[{"label":"ACTIONABLE ITEMS","details":"...","party":""}],"closing":"By NUPRC member..."}'></textarea>
       <div class="btn-row">
         <button id="applyJsonBtn" class="btn btn-secondary">Apply JSON to Draft</button>
       </div>
@@ -326,10 +324,10 @@
   <!-- TAB 3: DRAFT MINUTES EDITOR -->
   <section id="tab-draft" class="panel">
     <div class="card">
-      <h2>Meeting Header Metadata (Sample MOM Layout)</h2>
+      <h2>Meeting Header Metadata &amp; Co-Host Logo</h2>
       <div class="grid-2">
-        <div>
-          <label>Meeting Title</label>
+        <div style="grid-column: 1 / -1;">
+          <label>Meeting Title Banner</label>
           <input type="text" id="metaTitle" value="MINUTES OF MEETING BETWEEN NUPRC-CONOG - OML 59 OIL SPILL INCIDENT" />
         </div>
         <div>
@@ -338,11 +336,15 @@
         </div>
         <div>
           <label>Date</label>
-          <input type="text" id="metaDate" value="3 November 2026" />
+          <input type="text" id="metaDate" value="3 | November 2026" />
         </div>
         <div>
           <label>Time</label>
           <input type="text" id="metaTime" value="10am – 12am" />
+        </div>
+        <div>
+          <label>Right Header Logo (Optional Custom Image, defaults to Conoil Producing Limited)</label>
+          <input type="file" id="coLogoInput" accept="image/png,image/jpeg,image/webp" />
         </div>
         <div style="grid-column: 1 / -1;">
           <label>Venue</label>
@@ -353,6 +355,12 @@
 
     <div class="card">
       <h2>Attendance Table (S/N | NAME | COMPANY | EMAIL | MODE)</h2>
+      <div class="grid-2" style="margin-bottom:10px;">
+        <div>
+          <label>Minimum Numbered Rows in Exported Word Attendance Sheet</label>
+          <input type="number" id="minAttendanceRows" value="25" min="1" max="100" />
+        </div>
+      </div>
       <table class="data-table" id="attendanceTable">
         <thead>
           <tr><th>S/N</th><th>NAME</th><th>COMPANY</th><th>EMAIL</th><th>MODE</th><th></th></tr>
@@ -365,9 +373,9 @@
     </div>
 
     <div class="card">
-      <h2>Safety Brief &amp; Deliberation Rows (S/N | DISCUSSION | IDENTIFIED ACTIONS | ACTION PARTY/TIMELINE)</h2>
+      <h2>Safety Brief &amp; Deliberation Sections (S/N | DISCUSSION | IDENTIFIED ACTIONS | ACTION PARTY/TIMELINE)</h2>
       <label>SAFETY BRIEF</label>
-      <textarea id="safetyBriefInput" rows="2">This was presented by Engr. Iheanacho Ukonne, Head, Operations.</textarea>
+      <textarea id="safetyBriefInput" rows="2">This was presented by </textarea>
 
       <div id="agendaContainer" style="margin-top:12px;"></div>
       <div class="btn-row">
@@ -376,9 +384,9 @@
     </div>
 
     <div class="card">
-      <h2>Closing Remarks &amp; 3-Party Sign-Off (NUPRC | CONOG | HOST COMMUNITY)</h2>
+      <h2>Closing Remarks &amp; 3-Party Sign-Off</h2>
       <label>Closing Remarks</label>
-      <textarea id="closingInput" rows="3">The Coordinator, NUPRC Yenagoa, thanked everyone present and implored CONOG and the Host Community to maintain harmony and live in peaceful co-existence.</textarea>
+      <textarea id="closingInput" rows="3">By NUPRC member</textarea>
       <div class="grid-3" style="margin-top:10px;">
         <div>
           <label>Left Sign-Off Column</label>
@@ -399,7 +407,7 @@
       <div class="btn-row" style="margin-top:0;justify-content:space-between;">
         <div>
           <strong style="color:var(--green-dark);">Official A4 NUPRC MOM Table Export (.docx)</strong>
-          <div style="font-size:0.82rem;color:var(--muted);">11906×16838 DXA • Times New Roman • 10,500 DXA Fixed Tables • Party-Tagged MOM Structure</div>
+          <div style="font-size:0.82rem;color:var(--muted);">A4 Portrait • Times New Roman • Dual Header Logos • 25-Row Attendance • Synthesized Deliberations</div>
         </div>
         <div class="btn-row" style="margin-top:0;">
           <button id="saveHistoryBtn" class="btn btn-secondary">Save to Offline History</button>
@@ -412,7 +420,7 @@
   <!-- TAB 4: ACTIONABLE ITEMS & RESOLUTIONS -->
   <section id="tab-actions" class="panel">
     <div class="card">
-      <h2>Actionable Items &amp; Resolutions Table</h2>
+      <h2>Actionable Items, Resolutions &amp; Adjournment Rows</h2>
       <table class="data-table" id="actionsTable">
         <thead>
           <tr><th>Row Label</th><th>Details / Resolution</th><th>Action Party / Timeline</th><th></th></tr>
@@ -420,7 +428,7 @@
         <tbody></tbody>
       </table>
       <div class="btn-row">
-        <button id="addActionBtn" class="btn btn-primary">+ Add Action / Resolution Row</button>
+        <button id="addActionBtn" class="btn btn-primary">+ Add Row</button>
       </div>
     </div>
   </section>
@@ -707,13 +715,11 @@
     const { wavBlob, wavName, pcm16k } = await convertBlobTo16kWav(fileOrBlob, filename);
     await yieldToUi(40);
 
-    // If the converted WAV is <= 12 MB, upload as a single valid WAV file
     if (wavBlob.size <= DIRECT_LIMIT_BYTES) {
       if (onProgress) onProgress(1, 1, 'Uploading converted WAV...');
       return await uploadSingleChunkToApi(wavBlob, wavName, apiKey, url, model);
     }
 
-    // Otherwise slice into valid ~7.68 MB WAV segments (240s @ 16kHz mono)
     const sliceSamples = 16000 * 240;
     const totalChunks = Math.ceil(pcm16k.length / sliceSamples);
     const parts = [];
@@ -730,6 +736,7 @@
     return parts.join(' ');
   }
 
+  // Left Logo: NUPRC Circular Emblem
   function drawNuprcEmblem(canvas) {
     const ctx = canvas.getContext('2d');
     const W = 320, H = 320, cx = 160, cy = 160;
@@ -793,6 +800,56 @@
     ctx.restore();
   }
   drawNuprcEmblem(document.getElementById('headerEmblem'));
+
+  // Right Logo: Conoil Producing Limited Graphic (or Custom Uploaded Logo)
+  let customRightLogoBase64 = null;
+  document.getElementById('coLogoInput').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      customRightLogoBase64 = String(reader.result).split(',')[1];
+    };
+    reader.readAsDataURL(f);
+  });
+
+  function drawConoilLogoBase64() {
+    if (customRightLogoBase64) return customRightLogoBase64;
+    const c = document.createElement('canvas');
+    c.width = 480; c.height = 240;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, 480, 240);
+
+    // Pinwheel floral icon in upper right
+    const px = 345, py = 65;
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3;
+      ctx.save();
+      ctx.translate(px + Math.cos(a) * 26, py + Math.sin(a) * 26);
+      ctx.rotate(a + 0.5);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(14, -14, 28, 0);
+      ctx.quadraticCurveTo(14, 14, 0, 0);
+      ctx.fillStyle = i % 2 === 0 ? '#D9F99D' : '#84CC16';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#0F766E';
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = '#EA580C';
+    ctx.font = 'bold 76px Arial, sans-serif';
+    ctx.fillText('Conoil', 24, 152);
+
+    ctx.fillStyle = '#0F4C5C';
+    ctx.font = 'bold 42px Arial, sans-serif';
+    ctx.fillText('Producing Limited', 26, 206);
+
+    return c.toDataURL('image/png').split(',')[1];
+  }
 
   document.querySelectorAll('nav.tabs button').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -982,7 +1039,7 @@
         updateQueueUI();
       }
 
-      transcribeStatus.textContent = 'Completed! Extracting party-tagged MOM table...';
+      transcribeStatus.textContent = 'Completed! Synthesizing key points into MOM draft...';
       runDeterministicExtractor();
       document.querySelector('nav.tabs button[data-tab="tab-transcript"]').click();
     } catch (err) {
@@ -1002,119 +1059,221 @@
   }
   verbatimText.addEventListener('input', updateTranscriptStats);
 
+  // State pre-configured to match the attached NUPRC meeting template.docx layout
   let state = {
     attendance: [
-      { sn: '1', name: 'Bighoro, S.E', company: 'NUPRC', email: 'Bighoro.s.e@nuprc.gov.ng', mode: 'PHYSICAL' },
-      { sn: '2', name: 'Aghogho Ufuoma Precious', company: 'NUPRC', email: 'Aghoghoprecious09@gmail.com', mode: 'PHYSICAL' }
+      { sn: '1', name: '', company: '', email: '', mode: 'PHYSICAL' }
     ],
     agenda: [
       {
         sn: '1',
         topic: 'OPENING REMARKS',
-        discussion: '[NUPRC] The Coordinator welcomed all parties present and emphasized peaceful collaboration and timely resolution of community issues.',
+        discussion: '',
         actions: '',
-        party: 'NUPRC'
+        party: ''
       },
       {
         sn: '2',
-        topic: 'INCIDENT & PETITION REVIEW',
-        discussion: '[HOST COMMUNITY] Stakeholders presented incident findings and demands.\n[CONOG] Operator representative responded to operational points.',
-        actions: 'Conduct joint verification and submit report.',
-        party: 'CONOG / NUPRC'
+        topic: 'THE COMMUNITY PETITION REVIEW',
+        discussion: '',
+        actions: '',
+        party: 'OPERATOR'
+      },
+      {
+        sn: '',
+        topic: 'INCIDENT REVIEW',
+        discussion: '',
+        actions: '',
+        party: ''
+      },
+      {
+        sn: '',
+        topic: 'NUPRC RESPONSE',
+        discussion: '',
+        actions: '',
+        party: ''
+      },
+      {
+        sn: '3',
+        topic: 'OTHER COMMUNITY GRIEVANCES',
+        discussion: '',
+        actions: '',
+        party: 'KOLUAMA HOST COMMUNITY'
       }
     ],
     actions: [
-      { label: 'ACTIONABLE ITEMS', details: '[CONOG / NUPRC] Follow-up actions and deliverables agreed during the sitting.', party: 'CONOG / NUPRC' },
-      { label: 'RESOLUTIONS', details: '[ALL PARTIES] Parties agreed to reconvene and report progress on scheduled date.', party: 'ALL' }
+      { label: 'ACTIONABLE ITEMS', details: '', party: '', mergeActionsCol: true },
+      { label: 'RESOLUTIONS', details: '', party: 'Operator', mergeActionsCol: false },
+      { label: '', details: '', party: 'COMMUNITY', mergeActionsCol: false },
+      { label: 'ADJOURNMENT', details: '', party: 'ALL', mergeActionsCol: false }
     ]
   };
 
-  function detectPartiesInText(text) {
-    const found = [];
-    const add = (label) => { if (!found.includes(label)) found.push(label); };
-
-    if (/\b(nuprc|commission|coordinator|field office|adrc|regulator|regulatory)\b/i.test(text)) add('NUPRC');
-    if (/\b(conog|continental oil|operator|company|management|clamping|flow line|pipeline|well head|wellhead)\b/i.test(text)) add('CONOG');
-    if (/\b(host community|community|koluama|hcdt|youths|trust|petition|fishermen|residents|clan)\b/i.test(text)) add('HOST COMMUNITY');
-    if (/\b(nosdra|ministry of environment|government|agency|agencies|joint investigation|jiv)\b/i.test(text)) add('JOINT / AGENCIES');
-    if (/\b(both parties|all parties|everyone|collectively|unanimously|adjourned)\b/i.test(text)) add('ALL');
-
-    if (found.length === 0) return { label: 'ALL', tag: 'GENERAL' };
-    if (found.length > 2) return { label: found.join(' / '), tag: 'MULTI-PARTY' };
-    return { label: found.join(' / '), tag: found[0] };
+  function inferActionParty(text) {
+    if (!text) return '';
+    const hasOp = /\b(conog|conoil|operator|company)\b/i.test(text);
+    const hasComm = /\b(community|koluama|hcdt|youths|trust)\b/i.test(text);
+    const hasReg = /\b(nuprc|commission|regulator)\b/i.test(text);
+    if (hasOp && hasComm) return 'ALL';
+    if (hasOp) return 'OPERATOR';
+    if (hasComm) return 'KOLUAMA HOST COMMUNITY';
+    if (hasReg) return 'NUPRC';
+    return '';
   }
 
+  function extractAttendeesFromTranscript(raw) {
+    const patterns = [
+      /\b(?:my name is|i am|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})(?:\s+(?:from|representing|of)\s+([A-Za-z0-9 &.-]{2,40}))?/g
+    ];
+    const found = [];
+    for (const rx of patterns) {
+      let m;
+      while ((m = rx.exec(raw)) !== null) {
+        const name = (m[1] || '').trim();
+        const company = (m[2] || '').replace(/[.,;].*$/, '').trim();
+        if (name && name.split(' ').length >= 2 && !found.some((x) => x.name.toLowerCase() === name.toLowerCase())) {
+          found.push({ sn: String(found.length + 1), name, company, email: '', mode: 'PHYSICAL' });
+        }
+      }
+    }
+    if (found.length > 0) {
+      state.attendance = found;
+    }
+  }
+
+  // Synthesizes cohesive key-point narratives without line-by-line speaker tags
   function runDeterministicExtractor() {
     const raw = verbatimText.value.trim();
     if (!raw) return;
 
+    extractAttendeesFromTranscript(raw);
+
     const sentences = raw
       .replace(/\[Recording \d+:[^\]]+\]/g, '')
+      .replace(/\[[^\]]+\]:?/g, '')
       .split(/(?<=[.?!])\s+/)
       .map((s) => s.trim())
-      .filter(Boolean);
+      .filter((s) => s.length > 8);
 
-    const safetyHits = sentences.filter((s) => /\b(safety|hse|hazard|muster|ppe|emergency|incident|health)\b/i.test(s));
+    // 1. Safety Brief
+    const safetyHits = sentences.filter((s) => /\b(safety|hse|hazard|muster|ppe|emergency|health)\b/i.test(s));
     if (safetyHits.length > 0) {
-      const sParty = detectPartiesInText(safetyHits[0]).tag;
-      document.getElementById('safetyBriefInput').value = `[${sParty}] ${safetyHits.slice(0, 2).join(' ')}`;
+      document.getElementById('safetyBriefInput').value = safetyHits.slice(0, 2).join(' ');
     }
 
-    const bodySentences = sentences.filter((s) => !safetyHits.includes(s));
-    const chunkSize = Math.max(3, Math.ceil(bodySentences.length / 3));
-    const newAgenda = [];
+    const remaining = sentences.filter((s) => !safetyHits.includes(s));
 
-    for (let i = 0; i < bodySentences.length; i += chunkSize) {
-      const slice = bodySentences.slice(i, i + chunkSize);
+    // Bucket sentences thematically across the template sections
+    const opening = [];
+    const petition = [];
+    const incident = [];
+    const nuprcResp = [];
+    const otherGrievances = [];
+    const actionable = [];
+    const resolutions = [];
+    const adjournment = [];
 
-      const taggedLines = slice.map((sent) => {
-        const p = detectPartiesInText(sent);
-        return `[${p.tag}] ${sent}`;
-      });
+    remaining.forEach((s, idx) => {
+      if (/\b(adjourn|adjourned|motion for adjournment|closing|peaceful co-existence|thank everyone)\b/i.test(s)) {
+        adjournment.push(s);
+      } else if (/\b(resolve|resolved|resolution|unanimously|agreed that|consensus)\b/i.test(s)) {
+        resolutions.push(s);
+      } else if (/\b(action|must|shall|directed|submit|report|hand over|deadline|within \d+ days|timeline)\b/i.test(s)) {
+        actionable.push(s);
+      } else if (idx < Math.max(2, Math.floor(remaining.length * 0.14)) || /\b(welcome|opening|purpose of the meeting|called to order)\b/i.test(s)) {
+        opening.push(s);
+      } else if (/\b(petition|demand|letter|complaint|alleged|compensation)\b/i.test(s)) {
+        petition.push(s);
+      } else if (/\b(spill|incident|leak|clamping|jiv|joint investigation|equipment failure|sabotage|pipeline|flowline|wellhead|oml 59)\b/i.test(s)) {
+        incident.push(s);
+      } else if (/\b(nuprc|commission|coordinator|regulator|regulatory|adrc|mandate|statutory)\b/i.test(s)) {
+        nuprcResp.push(s);
+      } else {
+        otherGrievances.push(s);
+      }
+    });
 
-      const chunkParties = detectPartiesInText(slice.join(' '));
-      const actionSentences = slice.filter((s) =>
-        /\b(action|must|shall|direct|directed|agree|agreed|resolve|resolved|submit|report|hand over|handed over|deadline|by )\b/i.test(s)
-      );
-
-      newAgenda.push({
-        sn: String(newAgenda.length + 1),
-        topic: i === 0 ? 'OPENING REMARKS' : `AGENDA ITEM ${newAgenda.length + 1}`,
-        discussion: taggedLines.join('\n'),
-        actions: actionSentences.join(' '),
-        party: chunkParties.label
-      });
+    // If transcript didn't hit specific keywords, distribute cleanly so no section is empty
+    if (petition.length === 0 && incident.length === 0 && remaining.length > 3) {
+      const part = Math.ceil(remaining.length / 4);
+      if (opening.length === 0) opening.push(...remaining.slice(0, part));
+      petition.push(...remaining.slice(part, part * 2));
+      incident.push(...remaining.slice(part * 2, part * 3));
+      nuprcResp.push(...remaining.slice(part * 3));
     }
-    if (newAgenda.length > 0) state.agenda = newAgenda;
 
-    const actionHits = sentences.filter((s) =>
-      /\b(action|must|shall|direct|directed|submit|report|hand over|handed over|deadline|by )\b/i.test(s)
-    );
-    const resHits = sentences.filter((s) =>
-      /\b(agree|agreed|resolve|resolved|unanimously|adjourn|adjourned|reconvene|revert)\b/i.test(s)
-    );
+    const synthesizeParagraph = (arr) => arr.join(' ').replace(/\s+/g, ' ').trim();
 
-    const actionLines = (actionHits.length > 0 ? actionHits.slice(0, 5) : bodySentences.slice(0, 2)).map((s) => {
-      const p = detectPartiesInText(s);
-      return `[${p.tag}] ${s}`;
-    });
-    const actionPartyLabel = detectPartiesInText(actionLines.join(' ')).label;
-
-    const resLines = (resHits.length > 0 ? resHits.slice(0, 5) : bodySentences.slice(-2)).map((s) => {
-      const p = detectPartiesInText(s);
-      return `[${p.tag}] ${s}`;
-    });
-    const resPartyLabel = detectPartiesInText(resLines.join(' ')).label;
-
-    state.actions = [
-      { label: 'ACTIONABLE ITEMS', details: actionLines.join('\n'), party: actionPartyLabel },
-      { label: 'RESOLUTIONS', details: resLines.join('\n'), party: resPartyLabel }
+    state.agenda = [
+      {
+        sn: '1',
+        topic: 'OPENING REMARKS',
+        discussion: synthesizeParagraph(opening),
+        actions: '',
+        party: ''
+      },
+      {
+        sn: '2',
+        topic: 'THE COMMUNITY PETITION REVIEW',
+        discussion: synthesizeParagraph(petition),
+        actions: '',
+        party: inferActionParty(petition.join(' ')) || 'OPERATOR'
+      },
+      {
+        sn: '',
+        topic: 'INCIDENT REVIEW',
+        discussion: synthesizeParagraph(incident),
+        actions: '',
+        party: ''
+      },
+      {
+        sn: '',
+        topic: 'NUPRC RESPONSE',
+        discussion: synthesizeParagraph(nuprcResp),
+        actions: '',
+        party: ''
+      },
+      {
+        sn: '3',
+        topic: 'OTHER COMMUNITY GRIEVANCES',
+        discussion: synthesizeParagraph(otherGrievances),
+        actions: '',
+        party: inferActionParty(otherGrievances.join(' ')) || 'KOLUAMA HOST COMMUNITY'
+      }
     ];
 
-    const closingHit = [...sentences].reverse().find((s) => /\b(adjourn|closing|thank you|end of meeting|peaceful co-existence)\b/i.test(s));
-    if (closingHit) {
-      const cParty = detectPartiesInText(closingHit).tag;
-      document.getElementById('closingInput').value = `[${cParty}] ${closingHit}`;
+    const opRes = resolutions.filter((s) => /\b(conog|conoil|operator|company)\b/i.test(s));
+    const commRes = resolutions.filter((s) => !opRes.includes(s));
+
+    state.actions = [
+      {
+        label: 'ACTIONABLE ITEMS',
+        details: synthesizeParagraph(actionable),
+        party: inferActionParty(actionable.join(' ')),
+        mergeActionsCol: true
+      },
+      {
+        label: 'RESOLUTIONS',
+        details: synthesizeParagraph(opRes.length ? opRes : resolutions),
+        party: 'Operator',
+        mergeActionsCol: false
+      },
+      {
+        label: '',
+        details: synthesizeParagraph(commRes),
+        party: 'COMMUNITY',
+        mergeActionsCol: false
+      },
+      {
+        label: 'ADJOURNMENT',
+        details: synthesizeParagraph(adjournment),
+        party: 'ALL',
+        mergeActionsCol: false
+      }
+    ];
+
+    if (adjournment.length > 0) {
+      document.getElementById('closingInput').value = synthesizeParagraph(adjournment.slice(-2));
     }
 
     renderDraftTables();
@@ -1167,10 +1326,10 @@
       box.className = 'agenda-box';
       box.innerHTML = `
         <div class="grid-2" style="margin-bottom:6px;">
-          <div><label>S/N (or blank for sub-row)</label><input type="text" value="${escapeHtml(ag.sn)}" data-f="sn"></div>
-          <div><label>Topic / Heading</label><input type="text" value="${escapeHtml(ag.topic)}" data-f="topic" style="font-weight:700;"></div>
+          <div><label>S/N (leave blank for sub-row)</label><input type="text" value="${escapeHtml(ag.sn)}" data-f="sn"></div>
+          <div><label>Section Heading</label><input type="text" value="${escapeHtml(ag.topic)}" data-f="topic" style="font-weight:700;"></div>
         </div>
-        <label>Discussion (Party-Tagged)</label>
+        <label>Discussion (Synthesized Key Points)</label>
         <textarea rows="4" data-f="discussion">${escapeHtml(ag.discussion)}</textarea>
         <div class="grid-2" style="margin-top:6px;">
           <div><label>Identified Actions</label><input type="text" value="${escapeHtml(ag.actions)}" data-f="actions"></div>
@@ -1212,7 +1371,7 @@
     renderDraftTables();
   });
   document.getElementById('addActionBtn').addEventListener('click', () => {
-    state.actions.push({ label: 'ACTIONABLE ITEMS', details: '', party: '' });
+    state.actions.push({ label: 'RESOLUTIONS', details: '', party: '' });
     renderDraftTables();
   });
 
@@ -1224,11 +1383,12 @@
   }
 
   function buildCellXml(text, widthDxa, opts = {}) {
-    const { bold = false, sizeHalfPt = 22, fill = null, color = '000000', align = 'left', vAlign = 'top' } = opts;
+    const { bold = false, sizeHalfPt = 22, fill = null, color = '000000', align = 'left', vAlign = 'top', gridSpan = 1, rawInnerXml = null } = opts;
     const shdXml = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '';
-    const parasXml = String(text || '').split('\n').map((line) => `
+    const spanXml = gridSpan > 1 ? `<w:gridSpan w:val="${gridSpan}"/>` : '';
+    const inner = rawInnerXml !== null ? rawInnerXml : String(text || '').split('\n').map((line) => `
       <w:p>
-        <w:pPr><w:spacing w:before="35" w:after="35" w:line="250" w:lineRule="auto"/><w:jc w:val="${align}"/></w:pPr>
+        <w:pPr><w:spacing w:before="30" w:after="30" w:line="240" w:lineRule="auto"/><w:jc w:val="${align}"/></w:pPr>
         <w:r>
           <w:rPr>
             <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
@@ -1243,11 +1403,12 @@
       <w:tc>
         <w:tcPr>
           <w:tcW w:w="${widthDxa}" w:type="dxa"/>
+          ${spanXml}
           ${shdXml}
           <w:vAlign w:val="${vAlign}"/>
-          <w:tcMar><w:top w:w="70" w:type="dxa"/><w:bottom w:w="70" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>
+          <w:tcMar><w:top w:w="60" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:left w:w="90" w:type="dxa"/><w:right w:w="90" w:type="dxa"/></w:tcMar>
         </w:tcPr>
-        ${parasXml}
+        ${inner}
       </w:tc>`;
   }
 
@@ -1260,12 +1421,12 @@
           <w:tblW w:w="${totalW}" w:type="dxa"/>
           <w:tblLayout w:type="fixed"/>
           <w:tblBorders>
-            <w:top w:val="single" w:sz="6" w:space="0" w:color="1F2937"/>
-            <w:left w:val="single" w:sz="6" w:space="0" w:color="1F2937"/>
-            <w:bottom w:val="single" w:sz="6" w:space="0" w:color="1F2937"/>
-            <w:right w:val="single" w:sz="6" w:space="0" w:color="1F2937"/>
-            <w:insideH w:val="single" w:sz="4" w:space="0" w:color="6B7280"/>
-            <w:insideV w:val="single" w:sz="4" w:space="0" w:color="6B7280"/>
+            <w:top w:val="single" w:sz="6" w:space="0" w:color="000000"/>
+            <w:left w:val="single" w:sz="6" w:space="0" w:color="000000"/>
+            <w:bottom w:val="single" w:sz="6" w:space="0" w:color="000000"/>
+            <w:right w:val="single" w:sz="6" w:space="0" w:color="000000"/>
+            <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+            <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
           </w:tblBorders>
         </w:tblPr>
         <w:tblGrid>${gridCols}</w:tblGrid>
@@ -1273,155 +1434,206 @@
       </w:tbl>`;
   }
 
+  function inlineImageXml(rId, docPrId, name, cxEmu, cyEmu, align = 'left') {
+    return `
+      <w:p><w:pPr><w:jc w:val="${align}"/><w:spacing w:before="20" w:after="20"/></w:pPr>
+        <w:r><w:drawing>
+          <wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+            <wp:extent cx="${cxEmu}" cy="${cyEmu}"/><wp:docPr id="${docPrId}" name="${name}"/>
+            <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+              <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                  <pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr>
+                  <pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                  <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxEmu}" cy="${cyEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+                </pic:pic>
+              </a:graphicData>
+            </a:graphic>
+          </wp:inline>
+        </w:drawing></w:r>
+      </w:p>`;
+  }
+
+  function pageCounterParagraphXml() {
+    return `
+      <w:p>
+        <w:pPr><w:spacing w:before="30" w:after="30"/><w:jc w:val="center"/></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">Page </w:t></w:r>
+        <w:r><w:fldChar w:fldCharType="begin"/></w:r>
+        <w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>
+        <w:r><w:fldChar w:fldCharType="separate"/></w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="22"/></w:rPr><w:t>1</w:t></w:r>
+        <w:r><w:fldChar w:fldCharType="end"/></w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve"> of </w:t></w:r>
+        <w:r><w:fldChar w:fldCharType="begin"/></w:r>
+        <w:r><w:instrText xml:space="preserve"> NUMPAGES </w:instrText></w:r>
+        <w:r><w:fldChar w:fldCharType="separate"/></w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="22"/></w:rPr><w:t>6</w:t></w:r>
+        <w:r><w:fldChar w:fldCharType="end"/></w:r>
+      </w:p>`;
+  }
+
   async function generateOfficialDocx(verbatimOnly = false) {
     const zip = new JSZip();
+
     const emblemCanvas = document.createElement('canvas');
     emblemCanvas.width = 320; emblemCanvas.height = 320;
     drawNuprcEmblem(emblemCanvas);
     zip.file('word/media/emblem.png', emblemCanvas.toDataURL('image/png').split(',')[1], { base64: true });
+    zip.file('word/media/cologo.png', drawConoilLogoBase64(), { base64: true });
 
-    const cxEmu = 822960, cyEmu = 822960;
     const titleText = document.getElementById('metaTitle').value.toUpperCase();
 
-    const bannerTable = buildFixedTableXml([7900, 2600], `
+    if (verbatimOnly) {
+      const bodyContent = buildFixedTableXml([10500], `
+        <w:tr>${buildCellXml(titleText + ' — VERBATIM TRANSCRIPT', 10500, { bold: true, fill: 'D1FAE5', color: '064E3B' })}</w:tr>
+        <w:tr>${buildCellXml(verbatimText.value || 'No transcript recorded.', 10500)}</w:tr>
+      `);
+      return await packageDocxZip(zip, bodyContent, 'NUPRC_Verbatim_Transcript.docx');
+    }
+
+    // Header Table matching NUPRC meeting template.docx
+    const headerTable = buildFixedTableXml([3500, 4200, 2800], `
       <w:tr>
-        ${buildCellXml(titleText, 7900, { bold: true, sizeHalfPt: 26, color: '064E3B', vAlign: 'center' })}
-        <w:tc>
-          <w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>
-          <w:p><w:pPr><w:jc w:val="center"/></w:pPr>
-            <w:r><w:drawing>
-              <wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
-                <wp:extent cx="${cxEmu}" cy="${cyEmu}"/><wp:docPr id="1" name="NUPRC Emblem"/>
-                <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-                  <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                    <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                      <pic:nvPicPr><pic:cNvPr id="1" name="emblem.png"/><pic:cNvPicPr/></pic:nvPicPr>
-                      <pic:blipFill><a:blip r:embed="rIdEmblem" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
-                      <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxEmu}" cy="${cyEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
-                    </pic:pic>
-                  </a:graphicData>
-                </a:graphic>
-              </wp:inline>
-            </w:drawing></w:r>
-          </w:p>
-        </w:tc>
+        ${buildCellXml('', 3500, { vAlign: 'center', rawInnerXml: inlineImageXml('rIdEmblem', 1, 'emblem.png', 780000, 780000, 'left') })}
+        ${buildCellXml('', 7000, { gridSpan: 2, vAlign: 'center', rawInnerXml: inlineImageXml('rIdCoLogo', 2, 'cologo.png', 1560000, 780000, 'right') })}
+      </w:tr>
+      <w:tr>
+        ${buildCellXml(titleText, 10500, { gridSpan: 3, bold: true, sizeHalfPt: 24, align: 'center', vAlign: 'center' })}
+      </w:tr>
+      <w:tr>
+        ${buildCellXml('Doc. Title', 3500, { bold: true })}
+        ${buildCellXml('DATE', 4200, { bold: true, align: 'center' })}
+        ${buildCellXml('', 2800, { rawInnerXml: pageCounterParagraphXml() })}
+      </w:tr>
+      <w:tr>
+        ${buildCellXml(document.getElementById('metaDocTitle').value, 3500, { bold: true })}
+        ${buildCellXml(document.getElementById('metaDate').value, 4200, { align: 'center' })}
+        ${buildCellXml('', 2800)}
+      </w:tr>
+      <w:tr>
+        ${buildCellXml('TIME:', 3500, { bold: true })}
+        ${buildCellXml(document.getElementById('metaTime').value, 7000, { gridSpan: 2 })}
+      </w:tr>
+      <w:tr>
+        ${buildCellXml('VENUE:', 3500, { bold: true })}
+        ${buildCellXml(document.getElementById('metaVenue').value, 7000, { gridSpan: 2 })}
       </w:tr>
     `);
 
-    let bodyContent = bannerTable;
+    // Attendance Table (25 numbered rows by default, matching template)
+    const minRows = Math.max(state.attendance.length, parseInt(document.getElementById('minAttendanceRows').value, 10) || 25);
+    const attHeader = `
+      <w:tr>${buildCellXml('ATTENDANCE:', 10500, { gridSpan: 5, bold: true })}</w:tr>
+      <w:tr>
+        ${buildCellXml('S/N', 700, { bold: true, align: 'center' })}
+        ${buildCellXml('NAME', 3100, { bold: true })}
+        ${buildCellXml('COMPANY', 2100, { bold: true })}
+        ${buildCellXml('EMAIL', 3000, { bold: true })}
+        ${buildCellXml('MODE', 1600, { bold: true, align: 'center' })}
+      </w:tr>`;
 
-    if (verbatimOnly) {
-      bodyContent += buildFixedTableXml([10500], `
-        <w:tr>${buildCellXml('VERBATIM TRANSCRIPT', 10500, { bold: true, fill: 'D1FAE5', color: '064E3B' })}</w:tr>
-        <w:tr>${buildCellXml(verbatimText.value || 'No transcript recorded.', 10500)}</w:tr>
-      `);
-    } else {
-      const metaTable = buildFixedTableXml([3500, 3500, 3500], `
-        <w:tr>
-          ${buildCellXml('Doc. Title', 3500, { bold: true, fill: 'E5E7EB' })}
-          ${buildCellXml('DATE', 3500, { bold: true, fill: 'E5E7EB' })}
-          ${buildCellXml('TIME', 3500, { bold: true, fill: 'E5E7EB' })}
-        </w:tr>
-        <w:tr>
-          ${buildCellXml(document.getElementById('metaDocTitle').value, 3500, { bold: true })}
-          ${buildCellXml(document.getElementById('metaDate').value, 3500)}
-          ${buildCellXml(document.getElementById('metaTime').value, 3500)}
-        </w:tr>
-        <w:tr>
-          ${buildCellXml('VENUE:', 3500, { bold: true, fill: 'E5E7EB' })}
-          ${buildCellXml(document.getElementById('metaVenue').value, 7000)}
-        </w:tr>
-      `);
-
-      const attHeader = `
-        <w:tr>${buildCellXml('ATTENDANCE', 10500, { bold: true, fill: 'D1FAE5', color: '064E3B' })}</w:tr>
-        <w:tr>
-          ${buildCellXml('S/N', 700, { bold: true, fill: 'F3F4F6', align: 'center' })}
-          ${buildCellXml('NAME', 3100, { bold: true, fill: 'F3F4F6' })}
-          ${buildCellXml('COMPANY', 2100, { bold: true, fill: 'F3F4F6' })}
-          ${buildCellXml('EMAIL', 3000, { bold: true, fill: 'F3F4F6' })}
-          ${buildCellXml('MODE', 1600, { bold: true, fill: 'F3F4F6', align: 'center' })}
-        </w:tr>`;
-      const attRows = state.attendance.map((a, idx) => `
+    let attRowsXml = '';
+    for (let idx = 0; idx < minRows; idx++) {
+      const a = state.attendance[idx] || { name: '', company: '', email: '', mode: '' };
+      attRowsXml += `
         <w:tr>
           ${buildCellXml(String(idx + 1), 700, { align: 'center' })}
-          ${buildCellXml(a.name, 3100, { bold: true })}
+          ${buildCellXml(a.name, 3100)}
           ${buildCellXml(a.company, 2100)}
           ${buildCellXml(a.email, 3000)}
           ${buildCellXml(a.mode, 1600, { align: 'center' })}
-        </w:tr>`).join('');
-      const attTable = buildFixedTableXml([700, 3100, 2100, 3000, 1600], attHeader + attRows);
-
-      const momHeader = `
-        <w:tr>
-          ${buildCellXml('S/N', 700, { bold: true, fill: '064E3B', color: 'FFFFFF', align: 'center' })}
-          ${buildCellXml('DISCUSSION', 5200, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
-          ${buildCellXml('IDENTIFIED ACTIONS', 2600, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
-          ${buildCellXml('ACTION PARTY/TIMELINE', 2000, { bold: true, fill: '064E3B', color: 'FFFFFF' })}
-        </w:tr>
-        <w:tr>
-          ${buildCellXml('', 700)}
-          ${buildCellXml('SAFETY BRIEF\n' + document.getElementById('safetyBriefInput').value, 5200, { bold: false })}
-          ${buildCellXml('', 2600)}
-          ${buildCellXml('', 2000)}
         </w:tr>`;
-
-      const momAgendaRows = state.agenda.map((ag) => `
-        <w:tr>
-          ${buildCellXml(ag.sn || '', 700, { bold: true, align: 'center' })}
-          ${buildCellXml((ag.topic ? ag.topic + '\n' : '') + (ag.discussion || ''), 5200)}
-          ${buildCellXml(ag.actions || '', 2600)}
-          ${buildCellXml(ag.party || '', 2000, { bold: true })}
-        </w:tr>`).join('');
-
-      const momActionRows = state.actions.map((act) => `
-        <w:tr>
-          ${buildCellXml('', 700)}
-          ${buildCellXml((act.label ? act.label + '\n' : '') + (act.details || ''), 5200, { fill: act.label === 'ACTIONABLE ITEMS' ? 'D1FAE5' : null })}
-          ${buildCellXml('', 2600)}
-          ${buildCellXml(act.party || '', 2000, { bold: true })}
-        </w:tr>`).join('');
-
-      const momClosingRow = `
-        <w:tr>
-          ${buildCellXml('', 700)}
-          ${buildCellXml('Closing Remarks\n' + document.getElementById('closingInput').value, 9800)}
-        </w:tr>`;
-
-      const p1 = document.getElementById('signParty1').value;
-      const p2 = document.getElementById('signParty2').value;
-      const p3 = document.getElementById('signParty3').value;
-
-      const momSignRows = `
-        <w:tr>
-          ${buildCellXml('', 700)}
-          ${buildCellXml(p1, 3266, { bold: true, fill: 'F3F4F6', align: 'center' })}
-          ${buildCellXml(p2, 3267, { bold: true, fill: 'F3F4F6', align: 'center' })}
-          ${buildCellXml(p3, 3267, { bold: true, fill: 'F3F4F6', align: 'center' })}
-        </w:tr>
-        <w:tr>
-          ${buildCellXml('Name', 700, { bold: true, fill: 'F3F4F6' })}
-          ${buildCellXml('', 3266)}
-          ${buildCellXml('', 3267)}
-          ${buildCellXml('', 3267)}
-        </w:tr>
-        <w:tr>
-          ${buildCellXml('Signature', 700, { bold: true, fill: 'F3F4F6' })}
-          ${buildCellXml('', 3266)}
-          ${buildCellXml('', 3267)}
-          ${buildCellXml('', 3267)}
-        </w:tr>
-        <w:tr>
-          ${buildCellXml('Date', 700, { bold: true, fill: 'F3F4F6' })}
-          ${buildCellXml('', 3266)}
-          ${buildCellXml('', 3267)}
-          ${buildCellXml('', 3267)}
-        </w:tr>`;
-
-      const momTable = buildFixedTableXml([700, 5200, 2600, 2000], momHeader + momAgendaRows + momActionRows + momClosingRow + momSignRows);
-      bodyContent += metaTable + `<w:p><w:pPr><w:spacing w:before="80" w:after="80"/></w:pPr></w:p>` + attTable + `<w:p><w:pPr><w:spacing w:before="80" w:after="80"/></w:pPr></w:p>` + momTable;
     }
+    const attTable = buildFixedTableXml([700, 3100, 2100, 3000, 1600], attHeader + attRowsXml);
 
+    // Deliberations Table matching template columns: S/N (700) | DISCUSSION (5200) | IDENTIFIED ACTIONS (2600) | ACTION PARTY/TIMELINE (2000)
+    const momHeader = `
+      <w:tr>
+        ${buildCellXml('S/N', 700, { bold: true, align: 'center' })}
+        ${buildCellXml('DISCUSSION', 5200, { bold: true })}
+        ${buildCellXml('IDENTIFIED ACTIONS', 2600, { bold: true })}
+        ${buildCellXml('ACTION PARTY/TIMELINE', 2000, { bold: true })}
+      </w:tr>
+      <w:tr>
+        ${buildCellXml('', 700)}
+        ${buildCellXml('SAFETY BRIEF', 5200, { bold: true })}
+        ${buildCellXml(document.getElementById('safetyBriefInput').value, 2600)}
+        ${buildCellXml('', 2000)}
+      </w:tr>`;
+
+    const momAgendaRows = state.agenda.map((ag) => `
+      <w:tr>
+        ${buildCellXml(ag.sn || '', 700, { bold: true, align: 'center' })}
+        ${buildCellXml(ag.topic || '', 5200, { bold: true })}
+        ${buildCellXml([ag.discussion, ag.actions].filter(Boolean).join('\n'), 2600)}
+        ${buildCellXml(ag.party || '', 2000, { bold: true })}
+      </w:tr>`).join('');
+
+    const momActionRows = state.actions.map((act) => {
+      if (act.mergeActionsCol) {
+        return `
+          <w:tr>
+            ${buildCellXml('', 700)}
+            ${buildCellXml(act.label || '', 5200, { bold: true })}
+            ${buildCellXml(act.details || '', 4600, { gridSpan: 2 })}
+          </w:tr>`;
+      }
+      return `
+        <w:tr>
+          ${buildCellXml('', 700)}
+          ${buildCellXml(act.label || '', 5200, { bold: true })}
+          ${buildCellXml(act.details || '', 2600)}
+          ${buildCellXml(act.party || '', 2000, { bold: true })}
+        </w:tr>`;
+    }).join('');
+
+    const momClosingRow = `
+      <w:tr>
+        ${buildCellXml('', 700)}
+        ${buildCellXml('Closing Remarks\n' + document.getElementById('closingInput').value, 9800, { gridSpan: 3 })}
+      </w:tr>`;
+
+    const momTable = buildFixedTableXml([700, 5200, 2600, 2000], momHeader + momAgendaRows + momActionRows + momClosingRow);
+
+    // 3-Party Sign-Off Table matching template bottom rows
+    const p1 = document.getElementById('signParty1').value;
+    const p2 = document.getElementById('signParty2').value;
+    const p3 = document.getElementById('signParty3').value;
+
+    const signTable = buildFixedTableXml([1400, 3033, 3033, 3034], `
+      <w:tr>
+        ${buildCellXml('', 1400)}
+        ${buildCellXml(p1, 3033, { bold: true, align: 'center' })}
+        ${buildCellXml(p2, 3033, { bold: true, align: 'center' })}
+        ${buildCellXml(p3, 3034, { bold: true, align: 'center' })}
+      </w:tr>
+      <w:tr>
+        ${buildCellXml('Name', 1400, { bold: true })}
+        ${buildCellXml('', 3033)}
+        ${buildCellXml('', 3033)}
+        ${buildCellXml('', 3034)}
+      </w:tr>
+      <w:tr>
+        ${buildCellXml('Signature', 1400, { bold: true })}
+        ${buildCellXml('', 3033)}
+        ${buildCellXml('', 3033)}
+        ${buildCellXml('', 3034)}
+      </w:tr>
+      <w:tr>
+        ${buildCellXml('Date', 1400, { bold: true })}
+        ${buildCellXml('', 3033)}
+        ${buildCellXml('', 3033)}
+        ${buildCellXml('', 3034)}
+      </w:tr>
+    `);
+
+    const spacer = `<w:p><w:pPr><w:spacing w:before="60" w:after="60"/></w:pPr></w:p>`;
+    const bodyContent = headerTable + spacer + attTable + spacer + momTable + spacer + signTable;
+    return await packageDocxZip(zip, bodyContent, 'NUPRC_Official_MOM.docx');
+  }
+
+  async function packageDocxZip(zip, bodyContent, downloadName) {
     const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
         <w:body>${bodyContent}
@@ -1431,29 +1643,21 @@
 
     zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
     zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
-    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdEmblem" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/emblem.png"/></Relationships>`);
+    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdEmblem" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/emblem.png"/><Relationship Id="rIdCoLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/cologo.png"/></Relationships>`);
     zip.file('word/document.xml', documentXml);
 
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = verbatimOnly ? 'NUPRC_Verbatim_Transcript.docx' : 'NUPRC_Official_MOM.docx';
-    a.click();
-    URL.revokeObjectURL(a.href);
+    triggerDownload(blob, downloadName);
   }
 
   document.getElementById('generateDocxBtn').addEventListener('click', () => generateOfficialDocx(false));
   document.getElementById('exportVerbatimDocxBtn').addEventListener('click', () => generateOfficialDocx(true));
   document.getElementById('exportTxtBtn').addEventListener('click', () => {
     const blob = new Blob([verbatimText.value], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'NUPRC_Transcript.txt';
-    a.click();
-    URL.revokeObjectURL(a.href);
+    triggerDownload(blob, 'NUPRC_Transcript.txt');
   });
 
-  const DB_NAME = 'nuprc_minute_db_v7', STORE_NAME = 'sessions';
+  const DB_NAME = 'nuprc_minute_db_v8', STORE_NAME = 'sessions';
   function openDb() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, 1);
@@ -1519,7 +1723,7 @@
         document.getElementById('closingInput').value = rec.closing || '';
         document.getElementById('signParty1').value = rec.signParty1 || 'NUPRC';
         document.getElementById('signParty2').value = rec.signParty2 || 'CONOG';
-        document.getElementById('signParty3').value = rec.signParty3 || 'HOST COMMUNITY';
+        document.getElementById('signParty3').value = rec.signParty3 || 'HOST COMMUNITY (KOLUAMA HCDT)';
         verbatimText.value = rec.transcript || '';
         state = rec.state;
         updateTranscriptStats();
